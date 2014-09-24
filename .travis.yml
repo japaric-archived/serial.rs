@@ -1,0 +1,21 @@
+language: rust
+
+env:
+  global:
+    - secure: h8RxqJND+5/ljf61rYZXoyyFs7pcVk/lQ1HRH/xUKxjrPgTOPdZhHP8YGuvefExffvGyvGSUGQglVwxDggocnJSk/IRExxs8ptz3Z2A0I6JR98Dwf2pVlNjLk2syCtDCozpbfSY6v5BxMRlH211YiixuYV7cw5G8NVZoAaRCsjM=
+
+install:
+  # Required to create virtual serial ports for testing
+  - sudo apt-get install -qq socat
+
+script:
+  - cargo build --verbose
+  - cargo test --verbose
+  - cargo doc --verbose && mv target/doc doc
+  - ./check-line-length.sh
+
+after_success:
+  - '[ "${TRAVIS_PULL_REQUEST}" = "false" ] && curl http://www.rust-ci.org/artifacts/put?t=$RUSTCI_TOKEN | sh'
+
+branches:
+  only: master
