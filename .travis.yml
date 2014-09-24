@@ -9,6 +9,7 @@ install:
   - sudo apt-get install -qq socat
 
 script:
+  - apt-cache show libc6 | grep Version
   - cargo build --verbose
   - cargo test --verbose
   - cargo doc --verbose && mv target/doc doc
