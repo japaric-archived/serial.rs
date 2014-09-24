@@ -9,7 +9,7 @@ extern crate quickcheck;
 extern crate quickcheck_macros;
 
 use native::io::file::FileDesc;
-use std::io::{FileAccess, IoError, IoResult, OtherIoError, Read, ReadWrite, Write};
+use std::io::{FileAccess, IoError, IoResult, Read, ReadWrite, Write};
 
 use termios::{FAILURE, Termios, SUCCESS};
 
@@ -257,12 +257,7 @@ impl SerialPort {
 impl Reader for SerialPort {
     fn read(&mut self, buf: &mut [u8]) -> IoResult<uint> {
         match self.file.inner_read(buf) {
-            Err(err) => Err(IoError {
-                // FIXME How to convert rtio::IoError to io::IoError?
-                desc: "",
-                detail: err.detail,
-                kind: OtherIoError,
-            }),
+            Err(err) => Err(IoError::from_errno(err.code, true)),
             Ok(ret) => Ok(ret),
         }
     }
@@ -271,12 +266,7 @@ impl Reader for SerialPort {
 impl Writer for SerialPort {
     fn write(&mut self, buf: &[u8]) -> IoResult<()> {
         match self.file.inner_write(buf) {
-            Err(err) => Err(IoError {
-                // FIXME How to convert rtio::IoError to io::IoError?
-                desc: "",
-                detail: err.detail,
-                kind: OtherIoError,
-            }),
+            Err(err) => Err(IoError::from_errno(err.code, true)),
             Ok(_) => Ok(()),
         }
     }
