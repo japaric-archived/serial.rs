@@ -11,6 +11,7 @@ A serial port library on top of the termios API
 - A libc that includes the termios API.
   - Tested against glibc-2.15 on Ubuntu 12.04. (See travis)
   - Tested against glibc-2.20 on some [obscure][exherbo] Linux distro.
+  - Tested against OSX 10.9
 - `socat`, used to create virtual serial ports, only required to run the tests.
 
 # License
