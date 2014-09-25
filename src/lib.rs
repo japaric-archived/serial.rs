@@ -69,6 +69,7 @@ impl SerialPort {
     }
 
     /// Returns the input and output baud rates
+    #[cfg(target_os = "linux")]
     pub fn baud_rate(&self) -> IoResult<(BaudRate, BaudRate)> {
         let termios = try!(self.fetch());
 
@@ -87,6 +88,26 @@ impl SerialPort {
         Ok((input, output))
     }
 
+    /// Returns the input and output baud rates
+    #[cfg(target_os = "macos")]
+    pub fn baud_rate(&self) -> IoResult<(BaudRate, BaudRate)> {
+        let termios = try!(self.fetch());
+
+        let input = termios.c_ispeed;
+        let input = match FromPrimitive::from_u64(input) {
+            None => fail!("unrecognized BaudRate value: {}", input),
+            Some(input) => input,
+        };
+
+        let output = termios.c_ospeed;
+        let output = match FromPrimitive::from_u64(output) {
+            None => fail!("unrecognized BaudRate value: {}", output),
+            Some(output) => output,
+        };
+
+        Ok((input, output))
+    }
+
     /// Returns the blocking mode used by the device
     pub fn blocking_mode(&self) -> IoResult<BlockingMode> {
         use termios::{VMIN, VTIME};
@@ -98,12 +119,26 @@ impl SerialPort {
     }
 
     /// Returns the number of data bits used per character
+    #[cfg(target_os = "linux")]
     pub fn data_bits(&self) -> IoResult<DataBits> {
         use termios::CSIZE;
 
         let bits = try!(self.fetch()).c_cflag & CSIZE;
 
         match FromPrimitive::from_u32(bits) {
+            None => fail!("unrecognized DataBits value: {}", bits),
+            Some(bits) => Ok(bits),
+        }
+    }
+
+    /// Returns the number of data bits used per character
+    #[cfg(target_os = "macos")]
+    pub fn data_bits(&self) -> IoResult<DataBits> {
+        use termios::CSIZE;
+
+        let bits = try!(self.fetch()).c_cflag & CSIZE;
+
+        match FromPrimitive::from_u64(bits) {
             None => fail!("unrecognized DataBits value: {}", bits),
             Some(bits) => Ok(bits),
         }
@@ -163,11 +198,23 @@ impl SerialPort {
     }
 
     /// Changes the number of data bits per character
+    #[cfg(target_os = "linux")]
     pub fn set_data_bits(&mut self, bits: DataBits) -> IoResult<()> {
         use termios::CSIZE;
 
         self.termios.c_cflag &= !CSIZE;
         self.termios.c_cflag |= bits as u32;
+
+        self.update()
+    }
+
+    /// Changes the number of data bits per character
+    #[cfg(target_os = "macos")]
+    pub fn set_data_bits(&mut self, bits: DataBits) -> IoResult<()> {
+        use termios::CSIZE;
+
+        self.termios.c_cflag &= !CSIZE;
+        self.termios.c_cflag |= bits as u64;
 
         self.update()
     }
@@ -272,47 +319,90 @@ impl Writer for SerialPort {
     }
 }
 
+#[cfg(target_os = "linux")]
 #[deriving(FromPrimitive, PartialEq, Show)]
+#[repr(u32)]
 pub enum BaudRate {
-    B0 = 0x00,
-    B50 = 0x01,
-    B75 = 0x02,
-    B110 = 0x03,
-    B134 = 0x04,
-    B150 = 0x05,
-    B200 = 0x06,
-    B300 = 0x07,
-    B600 = 0x08,
-    B1K2 = 0x09,
-    B1K8 = 0x0A,
-    B2K4 = 0x0B,
-    B4K8 = 0x0C,
-    B9K6 = 0x0D,
-    B19K2 = 0x0E,
-    B38K4 = 0x0F,
-    B57K6 = 0x1001,
-    B115K2 = 0x1002,
-    B230K4 = 0x1003,
-    B460K8 = 0x1004,
-    B500K = 0x1005,
-    B576K = 0x1006,
-    B921K6 = 0x1007,
-    B1M = 0x1008,
-    B1M152 = 0x1009,
-    B1M5 = 0x100A,
-    B2M = 0x100B,
-    B2M5 = 0x100C,
-    B3M = 0x100D,
-    B3M5 = 0x100E,
-    B4M = 0x100F,
+    B0 = termios::B0,
+    B50 = termios::B50,
+    B75 = termios::B75,
+    B110 = termios::B110,
+    B134 = termios::B134,
+    B150 = termios::B150,
+    B200 = termios::B200,
+    B300 = termios::B300,
+    B600 = termios::B600,
+    B1K2 = termios::B1200,
+    B1K8 = termios::B1800,
+    B2K4 = termios::B2400,
+    B4K8 = termios::B4800,
+    B9K6 = termios::B9600,
+    B19K2 = termios::B19200,
+    B38K4 = termios::B38400,
+    B57K6 = termios::B57600,
+    B115K2 = termios::B115200,
+    B230K4 = termios::B230400,
+    B460K8 = termios::B460800,
+    B500K = termios::B500000,
+    B576K = termios::B576000,
+    B921K6 = termios::B921600,
+    B1M = termios::B1000000,
+    B1M152 = termios::B1152000,
+    B1M5 = termios::B1500000,
+    B2M = termios::B2000000,
+    B2M5 = termios::B2500000,
+    B3M = termios::B3000000,
+    B3M5 = termios::B3500000,
+    B4M = termios::B4000000,
 }
 
+#[cfg(target_os = "macos")]
 #[deriving(FromPrimitive, PartialEq, Show)]
+#[repr(u64)]
+pub enum BaudRate {
+    B0 = termios::B0,
+    B50 = termios::B50,
+    B75 = termios::B75,
+    B110 = termios::B110,
+    B134 = termios::B134,
+    B150 = termios::B150,
+    B200 = termios::B200,
+    B300 = termios::B300,
+    B600 = termios::B600,
+    B1K2 = termios::B1200,
+    B1K8 = termios::B1800,
+    B2K4 = termios::B2400,
+    B4K8 = termios::B4800,
+    B7K2 = termios::B7200,
+    B9K6 = termios::B9600,
+    B14K4 = termios::B14400,
+    B19K2 = termios::B19200,
+    B28K8 = termios::B28800,
+    B38K4 = termios::B38400,
+    B57K6 = termios::B57600,
+    B76K8 = termios::B76800,
+    B115K2 = termios::B115200,
+    B230K4 = termios::B230400,
+}
+
+#[cfg(target_os = "linux")]
+#[deriving(FromPrimitive, PartialEq, Show)]
+#[repr(u32)]
 pub enum DataBits {
-    Data5 = 0x00,
-    Data6 = 0x10,
-    Data7 = 0x20,
-    Data8 = 0x30,
+    Data5 = termios::CS5,
+    Data6 = termios::CS6,
+    Data7 = termios::CS7,
+    Data8 = termios::CS8,
+}
+
+#[cfg(target_os = "macos")]
+#[deriving(FromPrimitive, PartialEq, Show)]
+#[repr(u64)]
+pub enum DataBits {
+    Data5 = termios::CS5,
+    Data6 = termios::CS6,
+    Data7 = termios::CS7,
+    Data8 = termios::CS8,
 }
 
 pub enum Direction {

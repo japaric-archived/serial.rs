@@ -7,7 +7,7 @@ use {
         BothDirections, Input, Output,
     BaudRate,
         B0, B50, B75, B110, B134, B150, B200, B300, B600, B1K2, B2K4, B4K8, B9K6, B19K2, B38K4,
-        B57K6, B115K2, B230K4, B460K8, B500K, B921K6, B1M, B1M152, B1M5, B2M, B2M5, B3M, B3M5, B4M,
+        B57K6, B115K2, B230K4,
     //DataBits,
         Data5, Data6, Data7, Data8,
     //FlowControl,
@@ -17,11 +17,25 @@ use {
     //StopBits,
         Stop1, Stop2,
 };
+
+#[cfg(target_os = "linux")]
+use {B460K8, B500K, B576K, B921K6, B1M, B1M152, B1M5, B2M, B2M5, B3M, B3M5, B4M};
+
+#[cfg(target_os = "macos")]
+use {B7K2, B14K4, B28K8, B76K8};
+
 use socat::Socat;
 
+#[cfg(target_os = "linux")]
 static BAUD_RATES: &'static [BaudRate] = &[
     B0, B50, B75, B110, B134, B150, B200, B300, B600, B1K2, B2K4, B4K8, B9K6, B19K2, B38K4, B57K6,
-    B115K2, B230K4, B460K8, B500K, B921K6, B1M, B1M152, B1M5, B2M, B2M5, B3M, B3M5, B4M];
+    B115K2, B230K4, B460K8, B500K, B576K, B921K6, B1M, B1M152, B1M5, B2M, B2M5, B3M, B3M5, B4M];
+
+#[cfg(target_os = "macos")]
+static BAUD_RATES: &'static [BaudRate] = &[
+    B0, B50, B75, B110, B134, B150, B200, B300, B600, B1K2, B2K4, B4K8, B7K2, B9K6, B14K4, B19K2,
+    B28K8, B38K4, B57K6, B115K2, B230K4];
+
 static MESSAGE: &'static str = "Hello World!";
 
 #[test]
