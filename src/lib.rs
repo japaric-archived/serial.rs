@@ -1,3 +1,4 @@
+#![deny(warnings)]
 #![feature(phase, tuple_indexing)]
 
 extern crate libc;
