@@ -20,7 +20,7 @@ mod socat;
 #[cfg(test)]
 mod test;
 
-static O_NOCTTY: libc::c_int = 0x0100;
+const O_NOCTTY: libc::c_int = 0x0100;
 
 #[deriving(PartialEq)]
 pub struct BlockingMode {
