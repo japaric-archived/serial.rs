@@ -50,7 +50,7 @@ impl Socat {
 
 impl Drop for Socat {
     fn drop(&mut self) {
-        // FIXME Destructor may fail
+        // FIXME Destructor may panic
         self.process.signal_kill().unwrap()
     }
 }

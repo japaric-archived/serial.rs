@@ -76,13 +76,13 @@ impl SerialPort {
 
         let input = termios.c_ispeed;
         let input = match FromPrimitive::from_u32(input) {
-            None => fail!("unrecognized BaudRate value: {}", input),
+            None => panic!("unrecognized BaudRate value: {}", input),
             Some(input) => input,
         };
 
         let output = termios.c_ospeed;
         let output = match FromPrimitive::from_u32(output) {
-            None => fail!("unrecognized BaudRate value: {}", output),
+            None => panic!("unrecognized BaudRate value: {}", output),
             Some(output) => output,
         };
 
@@ -96,13 +96,13 @@ impl SerialPort {
 
         let input = termios.c_ispeed;
         let input = match FromPrimitive::from_u64(input) {
-            None => fail!("unrecognized BaudRate value: {}", input),
+            None => panic!("unrecognized BaudRate value: {}", input),
             Some(input) => input,
         };
 
         let output = termios.c_ospeed;
         let output = match FromPrimitive::from_u64(output) {
-            None => fail!("unrecognized BaudRate value: {}", output),
+            None => panic!("unrecognized BaudRate value: {}", output),
             Some(output) => output,
         };
 
@@ -127,7 +127,7 @@ impl SerialPort {
         let bits = try!(self.fetch()).c_cflag & CSIZE;
 
         match FromPrimitive::from_u32(bits) {
-            None => fail!("unrecognized DataBits value: {}", bits),
+            None => panic!("unrecognized DataBits value: {}", bits),
             Some(bits) => Ok(bits),
         }
     }
@@ -140,7 +140,7 @@ impl SerialPort {
         let bits = try!(self.fetch()).c_cflag & CSIZE;
 
         match FromPrimitive::from_u64(bits) {
-            None => fail!("unrecognized DataBits value: {}", bits),
+            None => panic!("unrecognized DataBits value: {}", bits),
             Some(bits) => Ok(bits),
         }
     }
