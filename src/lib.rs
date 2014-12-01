@@ -1,16 +1,15 @@
 #![deny(warnings)]
-#![feature(phase, tuple_indexing)]
+#![feature(globs, phase, tuple_indexing)]
 
 extern crate libc;
-extern crate native;
 #[cfg(test)]
 extern crate quickcheck;
 #[cfg(test)]
 #[phase(plugin)]
 extern crate quickcheck_macros;
 
-use native::io::file::FileDesc;
-use std::io::{FileAccess, IoError, IoResult, Read, ReadWrite, Write};
+use std::io::{File, FileAccess, FileMode, IoError, IoResult};
+use std::os::unix::AsRawFd;
 
 use termios::{FAILURE, Termios, SUCCESS};
 
@@ -19,8 +18,6 @@ mod termios;
 mod socat;
 #[cfg(test)]
 mod test;
-
-const O_NOCTTY: libc::c_int = 0x0100;
 
 #[deriving(PartialEq)]
 pub struct BlockingMode {
@@ -32,25 +29,15 @@ pub struct BlockingMode {
 
 pub struct SerialPort {
     fd: libc::c_int,
-    file: FileDesc,
+    file: File,
     termios: Termios,
 }
 
 impl SerialPort {
     /// Opens a serial `device` in "raw" mode
     pub fn open(device: &Path, access: FileAccess) -> IoResult<SerialPort> {
-        let flags = match access {
-            Read => libc::O_RDONLY,
-            ReadWrite => libc::O_RDWR,
-            Write => libc::O_WRONLY,
-        } | O_NOCTTY;
-
-        let fd = match device.with_c_str(|s| unsafe { libc::open(s, flags, 0) }) {
-            FAILURE => return Err(IoError::last_error()),
-            fd => fd,
-        };
-
-        let file = FileDesc::new(fd, true);
+        let file = try!(File::open_mode(device, FileMode::Open, access));
+        let fd = file.as_raw_fd();
 
         let mut termios = Termios::new();
 
@@ -147,38 +134,41 @@ impl SerialPort {
 
     /// Returns the flow control used by the device
     pub fn flow_control(&self) -> IoResult<FlowControl> {
+        use FlowControl::*;
         use termios::{CRTSCTS, IXANY, IXOFF, IXON};
 
         let termios = try!(self.fetch());
 
         if termios.c_cflag & CRTSCTS != 0 {
-            Ok(HardwareControl)
+            Ok(Hardware)
         } else if termios.c_iflag & (IXANY | IXOFF | IXON) == 0 {
-            Ok(NoFlowControl)
+            Ok(None)
         } else {
-            Ok(SoftwareControl)
+            Ok(Software)
         }
     }
 
     /// Returns the bit parity used by the device
     pub fn parity(&self) -> IoResult<Parity> {
+        use Parity::*;
         use termios::{PARENB, PARODD};
 
         let termios = try!(self.fetch());
 
         match (termios.c_cflag & PARENB != 0, termios.c_cflag & PARODD != 0) {
-            (true, true) => Ok(OddParity),
-            (true, false) => Ok(EvenParity),
-            (false, _) => Ok(NoParity),
+            (true, true) => Ok(Odd),
+            (true, false) => Ok(Even),
+            (false, _) => Ok(None),
         }
     }
 
     /// Changes the baud rate of the input/output or both directions
     pub fn set_baud_rate(&mut self, direction: Direction, rate: BaudRate) -> IoResult<()> {
+        use Direction::*;
         use termios::speed_t;
 
         match unsafe { match direction {
-            BothDirections => termios::cfsetspeed(&mut self.termios, rate as speed_t),
+            Both => termios::cfsetspeed(&mut self.termios, rate as speed_t),
             Input => termios::cfsetispeed(&mut self.termios, rate as speed_t),
             Output => termios::cfsetospeed(&mut self.termios, rate as speed_t),
         } } {
@@ -222,19 +212,22 @@ impl SerialPort {
 
     /// Changes the flow control used by the device
     pub fn set_flow_control(&mut self, flow: FlowControl) -> IoResult<()> {
+        use FlowControl::*;
         use termios::{CRTSCTS, IXANY, IXOFF, IXON};
 
         match flow {
-            HardwareControl => {
+            Hardware=> {
                 self.termios.c_cflag |= CRTSCTS;
                 self.termios.c_iflag &= !(IXANY | IXOFF | IXON);
-            } NoFlowControl => {
+            },
+            None => {
                 self.termios.c_cflag &= !CRTSCTS;
                 self.termios.c_iflag &= !(IXANY | IXOFF | IXON);
-            } SoftwareControl => {
+            },
+            Software => {
                 self.termios.c_cflag &= !CRTSCTS;
                 self.termios.c_iflag |= IXANY | IXOFF | IXON;
-            }
+            },
         }
 
         self.update()
@@ -242,15 +235,16 @@ impl SerialPort {
 
     /// Changes the bit parity used by the device
     pub fn set_parity(&mut self, parity: Parity) -> IoResult<()> {
+        use Parity::*;
         use termios::{PARENB, PARODD};
 
         match parity {
-            EvenParity => {
+            Even=> {
                 self.termios.c_cflag |= PARENB;
                 self.termios.c_cflag &= !PARODD;
             },
-            NoParity => self.termios.c_cflag &= !PARENB,
-            OddParity => self.termios.c_cflag |= PARENB | PARODD,
+            None => self.termios.c_cflag &= !PARENB,
+            Odd=> self.termios.c_cflag |= PARENB | PARODD,
         }
 
         self.update()
@@ -258,11 +252,12 @@ impl SerialPort {
 
     /// Changes the number of stop bits per character
     pub fn set_stop_bits(&mut self, bits: StopBits) -> IoResult<()> {
+        use StopBits::*;
         use termios::CSTOPB;
 
         match bits {
-            Stop1 => self.termios.c_cflag &= !CSTOPB,
-            Stop2 => self.termios.c_cflag |= CSTOPB,
+            One => self.termios.c_cflag &= !CSTOPB,
+            Two => self.termios.c_cflag |= CSTOPB,
         }
 
         self.update()
@@ -270,12 +265,13 @@ impl SerialPort {
 
     /// Returns the number of stop bits per character
     pub fn stop_bits(&self) -> IoResult<StopBits> {
+        use StopBits::*;
         use termios::CSTOPB;
 
         if try!(self.fetch()).c_cflag & CSTOPB == 0 {
-            Ok(Stop1)
+            Ok(One)
         } else {
-            Ok(Stop2)
+            Ok(Two)
         }
     }
 
@@ -304,19 +300,13 @@ impl SerialPort {
 
 impl Reader for SerialPort {
     fn read(&mut self, buf: &mut [u8]) -> IoResult<uint> {
-        match self.file.inner_read(buf) {
-            Err(err) => Err(IoError::from_errno(err.code, true)),
-            Ok(ret) => Ok(ret),
-        }
+        self.file.read(buf)
     }
 }
 
 impl Writer for SerialPort {
     fn write(&mut self, buf: &[u8]) -> IoResult<()> {
-        match self.file.inner_write(buf) {
-            Err(err) => Err(IoError::from_errno(err.code, true)),
-            Ok(_) => Ok(()),
-        }
+        self.file.write(buf)
     }
 }
 
@@ -390,45 +380,45 @@ pub enum BaudRate {
 #[deriving(FromPrimitive, PartialEq, Show)]
 #[repr(u32)]
 pub enum DataBits {
-    Data5 = termios::CS5,
-    Data6 = termios::CS6,
-    Data7 = termios::CS7,
-    Data8 = termios::CS8,
+    Five = termios::CS5,
+    Six = termios::CS6,
+    Seven = termios::CS7,
+    Eight = termios::CS8,
 }
 
 #[cfg(target_os = "macos")]
 #[deriving(FromPrimitive, PartialEq, Show)]
 #[repr(u64)]
 pub enum DataBits {
-    Data5 = termios::CS5,
-    Data6 = termios::CS6,
-    Data7 = termios::CS7,
-    Data8 = termios::CS8,
+    Five = termios::CS5,
+    Six = termios::CS6,
+    Seven = termios::CS7,
+    Eight = termios::CS8,
 }
 
 pub enum Direction {
-    BothDirections,
+    Both,
     Input,
     Output,
 }
 
 #[deriving(FromPrimitive, PartialEq, Show)]
 pub enum FlowControl {
-    HardwareControl,
-    NoFlowControl,
-    SoftwareControl,
+    Hardware,
+    None,
+    Software,
 }
 
 #[deriving(FromPrimitive, PartialEq, Show)]
 pub enum Parity {
-    EvenParity,
-    NoParity,
-    OddParity,
+    Even,
+    None,
+    Odd,
 }
 
 #[deriving(FromPrimitive, PartialEq, Show)]
 #[repr(u32)]
 pub enum StopBits {
-    Stop1,
-    Stop2,
+    One,
+    Two,
 }

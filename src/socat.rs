@@ -11,7 +11,7 @@ impl Socat {
     pub fn new() -> Socat {
         let mut process =
             Command::new("socat").
-                args(["-d", "-d", "pty", "pty"]).
+                args(&["-d", "-d", "pty", "pty"]).
                 spawn().
                 ok().
                 expect("Couldn't find `socat`");
