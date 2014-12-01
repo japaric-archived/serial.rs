@@ -1,28 +1,17 @@
 use std::io::{Read, ReadWrite, Write};
 use std::str;
 
-use {
-    BlockingMode, SerialPort,
-    //Direction,
-        BothDirections, Input, Output,
-    BaudRate,
-        B0, B50, B75, B110, B134, B150, B200, B300, B600, B1K2, B2K4, B4K8, B9K6, B19K2, B38K4,
-        B57K6, B115K2, B230K4,
-    //DataBits,
-        Data5, Data6, Data7, Data8,
-    //FlowControl,
-        HardwareControl, NoFlowControl, SoftwareControl,
-    //Parity,
-        EvenParity, NoParity, OddParity,
-    //StopBits,
-        Stop1, Stop2,
+use {BaudRate, BlockingMode, Direction, SerialPort};
+use BaudRate::{
+    B0, B50, B75, B110, B134, B150, B200, B300, B600, B1K2, B2K4, B4K8, B9K6, B19K2, B38K4, B57K6,
+    B115K2, B230K4,
 };
 
 #[cfg(target_os = "linux")]
-use {B460K8, B500K, B576K, B921K6, B1M, B1M152, B1M5, B2M, B2M5, B3M, B3M5, B4M};
+use BaudRate::{B460K8, B500K, B576K, B921K6, B1M, B1M152, B1M5, B2M, B2M5, B3M, B3M5, B4M};
 
 #[cfg(target_os = "macos")]
-use {B7K2, B14K4, B28K8, B76K8};
+use BaudRate::{B7K2, B14K4, B28K8, B76K8};
 
 use socat::Socat;
 
@@ -49,7 +38,7 @@ fn bidirectional_baud_rate() {
     };
 
     for &rate in BAUD_RATES.iter() {
-        match port.set_baud_rate(BothDirections, rate) {
+        match port.set_baud_rate(Direction::Both, rate) {
             Err(e) => panic!("{}: Couldn't set both baud rates to {} ({})", port_, rate, e),
             Ok(_) => {},
         }
@@ -92,6 +81,8 @@ fn blocking_mode(bytes: u8, deciseconds: u8) -> bool {
 #[test]
 #[ignore]
 fn data_bits() {
+    use DataBits::*;
+
     let socat = Socat::new();
     let port = socat.ports().0;
     let port_ = port.display();
@@ -100,7 +91,7 @@ fn data_bits() {
         Ok(port) => port,
     };
 
-    for &bits in [Data5, Data6, Data7, Data8].iter() {
+    for &bits in [Five, Six, Seven, Eight].iter() {
         match port.set_data_bits(bits) {
             Err(e) => panic!("{}: Couldn't set data bits to {} ({})", port_, bits, e),
             Ok(_) => {},
@@ -133,6 +124,8 @@ fn double_open() {
 
 #[test]
 fn flow_control() {
+    use FlowControl::*;
+
     let socat = Socat::new();
     let port = socat.ports().0;
     let port_ = port.display();
@@ -141,7 +134,7 @@ fn flow_control() {
         Ok(port) => port,
     };
 
-    for &flow in [HardwareControl, NoFlowControl, SoftwareControl].iter() {
+    for &flow in [Hardware, None, Software].iter() {
         match port.set_flow_control(flow) {
             Err(e) => panic!("{}: Couldn't set flow control to {} ({})", port_, flow, e),
             Ok(_) => {},
@@ -159,6 +152,8 @@ fn flow_control() {
 
 #[test]
 fn input_baud_rate() {
+    use Direction::Input;
+
     let socat = Socat::new();
     let port = socat.ports().0;
     let port_ = port.display();
@@ -237,6 +232,8 @@ fn open() {
 
 #[test]
 fn output_baud_rate() {
+    use Direction::Output;
+
     let socat = Socat::new();
     let port = socat.ports().0;
     let port_ = port.display();
@@ -265,6 +262,8 @@ fn output_baud_rate() {
 #[test]
 #[ignore]
 fn parity() {
+    use Parity::*;
+
     let socat = Socat::new();
     let port = socat.ports().0;
     let port_ = port.display();
@@ -273,7 +272,7 @@ fn parity() {
         Ok(port) => port,
     };
 
-    for &parity in [EvenParity, NoParity, OddParity].iter() {
+    for &parity in [Even, None, Odd].iter() {
         match port.set_parity(parity) {
             Err(e) => panic!("{}: Couldn't set parity to {} ({})", port_, parity, e),
             Ok(_) => {},
@@ -299,6 +298,8 @@ fn read_in_write_only_mode() {
 
 #[test]
 fn stop_bits() {
+    use StopBits::*;
+
     let socat = Socat::new();
     let port = socat.ports().0;
     let port_ = port.display();
@@ -307,7 +308,7 @@ fn stop_bits() {
         Ok(port) => port,
     };
 
-    for &bits in [Stop1, Stop2].iter() {
+    for &bits in [One, Two].iter() {
         match port.set_stop_bits(bits) {
             Err(e) => panic!("{}: Couldn't set stop bits to {} ({})", port_, bits, e),
             Ok(_) => {},
