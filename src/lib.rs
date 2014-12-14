@@ -19,7 +19,7 @@ mod socat;
 #[cfg(test)]
 mod test;
 
-#[deriving(PartialEq)]
+#[deriving(Copy, PartialEq)]
 pub struct BlockingMode {
     /// The device will block until `bytes` are received
     pub bytes: u8,
@@ -311,7 +311,7 @@ impl Writer for SerialPort {
 }
 
 #[cfg(target_os = "linux")]
-#[deriving(FromPrimitive, PartialEq, Show)]
+#[deriving(Copy, FromPrimitive, PartialEq, Show)]
 #[repr(u32)]
 pub enum BaudRate {
     B0 = termios::B0,
@@ -348,7 +348,7 @@ pub enum BaudRate {
 }
 
 #[cfg(target_os = "macos")]
-#[deriving(FromPrimitive, PartialEq, Show)]
+#[deriving(Copy, FromPrimitive, PartialEq, Show)]
 #[repr(u64)]
 pub enum BaudRate {
     B0 = termios::B0,
@@ -377,7 +377,7 @@ pub enum BaudRate {
 }
 
 #[cfg(target_os = "linux")]
-#[deriving(FromPrimitive, PartialEq, Show)]
+#[deriving(Copy, FromPrimitive, PartialEq, Show)]
 #[repr(u32)]
 pub enum DataBits {
     Five = termios::CS5,
@@ -387,7 +387,7 @@ pub enum DataBits {
 }
 
 #[cfg(target_os = "macos")]
-#[deriving(FromPrimitive, PartialEq, Show)]
+#[deriving(Copy, FromPrimitive, PartialEq, Show)]
 #[repr(u64)]
 pub enum DataBits {
     Five = termios::CS5,
@@ -396,27 +396,28 @@ pub enum DataBits {
     Eight = termios::CS8,
 }
 
+#[deriving(Copy)]
 pub enum Direction {
     Both,
     Input,
     Output,
 }
 
-#[deriving(FromPrimitive, PartialEq, Show)]
+#[deriving(Copy, FromPrimitive, PartialEq, Show)]
 pub enum FlowControl {
     Hardware,
     None,
     Software,
 }
 
-#[deriving(FromPrimitive, PartialEq, Show)]
+#[deriving(Copy, FromPrimitive, PartialEq, Show)]
 pub enum Parity {
     Even,
     None,
     Odd,
 }
 
-#[deriving(FromPrimitive, PartialEq, Show)]
+#[deriving(Copy, FromPrimitive, PartialEq, Show)]
 #[repr(u32)]
 pub enum StopBits {
     One,

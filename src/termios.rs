@@ -131,6 +131,7 @@ mod os {
 }
 
 #[repr(C)]
+#[deriving(Copy)]
 pub struct Termios {
     pub c_iflag: tcflag_t,
     c_oflag: tcflag_t,
