@@ -1,5 +1,5 @@
 #![deny(warnings)]
-#![feature(globs, phase, tuple_indexing)]
+#![feature(globs, phase)]
 
 extern crate libc;
 #[cfg(test)]
