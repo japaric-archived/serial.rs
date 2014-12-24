@@ -204,7 +204,7 @@ fn loopback() {
 
     match rx.read_exact(MESSAGE.len()) {
         Err(e) => panic!("{}: Couldn't read ({})", rx_, e),
-        Ok(buf) => assert_eq!(str::from_utf8(buf[]), Some(MESSAGE)),
+        Ok(buf) => assert_eq!(str::from_utf8(buf[]).ok(), Some(MESSAGE)),
     }
 }
 
