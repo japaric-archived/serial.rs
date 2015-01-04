@@ -9,6 +9,7 @@ extern crate quickcheck;
 extern crate quickcheck_macros;
 
 use std::io::{File, FileAccess, FileMode, IoError, IoResult};
+use std::num::FromPrimitive;
 use std::os::unix::AsRawFd;
 
 use termios::{FAILURE, Termios, SUCCESS};
@@ -19,7 +20,7 @@ mod socat;
 #[cfg(test)]
 mod test;
 
-#[deriving(Copy, PartialEq)]
+#[derive(Copy, PartialEq)]
 pub struct BlockingMode {
     /// The device will block until `bytes` are received
     pub bytes: u8,
@@ -311,7 +312,7 @@ impl Writer for SerialPort {
 }
 
 #[cfg(target_os = "linux")]
-#[deriving(Copy, FromPrimitive, PartialEq, Show)]
+#[derive(Copy, FromPrimitive, PartialEq, Show)]
 #[repr(u32)]
 pub enum BaudRate {
     B0 = termios::B0,
@@ -348,7 +349,7 @@ pub enum BaudRate {
 }
 
 #[cfg(target_os = "macos")]
-#[deriving(Copy, FromPrimitive, PartialEq, Show)]
+#[derive(Copy, FromPrimitive, PartialEq, Show)]
 #[repr(u64)]
 pub enum BaudRate {
     B0 = termios::B0,
@@ -377,7 +378,7 @@ pub enum BaudRate {
 }
 
 #[cfg(target_os = "linux")]
-#[deriving(Copy, FromPrimitive, PartialEq, Show)]
+#[derive(Copy, FromPrimitive, PartialEq, Show)]
 #[repr(u32)]
 pub enum DataBits {
     Five = termios::CS5,
@@ -387,7 +388,7 @@ pub enum DataBits {
 }
 
 #[cfg(target_os = "macos")]
-#[deriving(Copy, FromPrimitive, PartialEq, Show)]
+#[derive(Copy, FromPrimitive, PartialEq, Show)]
 #[repr(u64)]
 pub enum DataBits {
     Five = termios::CS5,
@@ -396,28 +397,28 @@ pub enum DataBits {
     Eight = termios::CS8,
 }
 
-#[deriving(Copy)]
+#[derive(Copy)]
 pub enum Direction {
     Both,
     Input,
     Output,
 }
 
-#[deriving(Copy, FromPrimitive, PartialEq, Show)]
+#[derive(Copy, FromPrimitive, PartialEq, Show)]
 pub enum FlowControl {
     Hardware,
     None,
     Software,
 }
 
-#[deriving(Copy, FromPrimitive, PartialEq, Show)]
+#[derive(Copy, FromPrimitive, PartialEq, Show)]
 pub enum Parity {
     Even,
     None,
     Odd,
 }
 
-#[deriving(Copy, FromPrimitive, PartialEq, Show)]
+#[derive(Copy, FromPrimitive, PartialEq, Show)]
 #[repr(u32)]
 pub enum StopBits {
     One,

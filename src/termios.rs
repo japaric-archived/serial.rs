@@ -131,14 +131,14 @@ mod os {
 }
 
 #[repr(C)]
-#[deriving(Copy)]
+#[derive(Copy)]
 pub struct Termios {
     pub c_iflag: tcflag_t,
     c_oflag: tcflag_t,
     pub c_cflag: tcflag_t,
     c_lflag: tcflag_t,
     #[cfg(target_os = "linux")] c_line: cc_t,
-    pub c_cc: [cc_t, ..NCCS],
+    pub c_cc: [cc_t; NCCS],
     pub c_ispeed: speed_t,
     pub c_ospeed: speed_t,
 }
@@ -148,7 +148,7 @@ impl Termios {
     #[cfg(target_os = "linux")]
     pub fn new() -> Termios {
         Termios {
-            c_cc: [0, ..NCCS],
+            c_cc: [0; NCCS],
             c_cflag: 0,
             c_iflag: 0,
             c_ispeed: 0,
@@ -162,7 +162,7 @@ impl Termios {
     #[cfg(target_os = "macos")]
     pub fn new() -> Termios {
         Termios {
-            c_cc: [0, ..NCCS],
+            c_cc: [0; NCCS],
             c_cflag: 0,
             c_iflag: 0,
             c_ispeed: 0,
