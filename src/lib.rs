@@ -1,11 +1,11 @@
 #![deny(warnings)]
-#![feature(globs, phase)]
+#![feature(plugin)]
 
 extern crate libc;
 #[cfg(test)]
 extern crate quickcheck;
 #[cfg(test)]
-#[phase(plugin)]
+#[plugin]
 extern crate quickcheck_macros;
 
 use std::io::{File, FileAccess, FileMode, IoError, IoResult};
