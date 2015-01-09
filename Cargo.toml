@@ -5,7 +5,9 @@ version = "0.0.0"
 authors = ["Jorge Aparicio <japaric@linux.com>"]
 
 [dev-dependencies.quickcheck]
-git = "https://github.com/burntsushi/quickcheck"
+git = "https://github.com/japaric/quickcheck"
+branch = "rustup"
 
 [dev-dependencies.quickcheck_macros]
-git = "https://github.com/burntsushi/quickcheck"
+git = "https://github.com/japaric/quickcheck"
+branch = "rustup"

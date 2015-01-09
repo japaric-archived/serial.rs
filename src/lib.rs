@@ -1,3 +1,4 @@
+#![allow(unstable)]
 #![deny(warnings)]
 #![feature(plugin)]
 
@@ -102,8 +103,8 @@ impl SerialPort {
         use termios::{VMIN, VTIME};
 
         Ok(BlockingMode {
-            bytes: self.termios.c_cc[VMIN as uint],
-            deciseconds: self.termios.c_cc[VTIME as uint],
+            bytes: self.termios.c_cc[VMIN as usize],
+            deciseconds: self.termios.c_cc[VTIME as usize],
         })
     }
 
@@ -183,8 +184,8 @@ impl SerialPort {
     pub fn set_blocking_mode(&mut self, mode: BlockingMode) -> IoResult<()> {
         use termios::{VMIN, VTIME};
 
-        self.termios.c_cc[VMIN as uint] = mode.bytes;
-        self.termios.c_cc[VTIME as uint] = mode.deciseconds;
+        self.termios.c_cc[VMIN as usize] = mode.bytes;
+        self.termios.c_cc[VTIME as usize] = mode.deciseconds;
 
         self.update()
     }
@@ -300,7 +301,7 @@ impl SerialPort {
 }
 
 impl Reader for SerialPort {
-    fn read(&mut self, buf: &mut [u8]) -> IoResult<uint> {
+    fn read(&mut self, buf: &mut [u8]) -> IoResult<usize> {
         self.file.read(buf)
     }
 }

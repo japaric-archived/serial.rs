@@ -76,7 +76,7 @@ mod os {
     pub const CSTOPB: tcflag_t = 0x40;
     pub const IXOFF: tcflag_t = 0x1000;
     pub const IXON: tcflag_t = 0x0400;
-    pub const NCCS: uint = 32;
+    pub const NCCS: usize = 32;
     pub const PARODD: tcflag_t = 0x0200;
     pub const VMIN: cc_t = 6;
     pub const VTIME: cc_t = 5;
@@ -124,7 +124,7 @@ mod os {
     pub const CSTOPB: tcflag_t = 0x0400;
     pub const IXOFF: tcflag_t = 0x0400;
     pub const IXON: tcflag_t = 0x0200;
-    pub const NCCS: uint = 20;
+    pub const NCCS: usize = 20;
     pub const PARODD: tcflag_t = 0x2000;
     pub const VMIN: cc_t = 16;
     pub const VTIME: cc_t = 17;

@@ -33,22 +33,21 @@ fn bidirectional_baud_rate() {
     let port = socat.ports().0;
     let port_ = port.display();
     let mut port = match SerialPort::open(port, Read) {
-        Err(e) => panic!("{}: Couldn't open ({})", port_, e),
+        Err(e) => panic!("{:?}: Couldn't open ({:?})", port_, e),
         Ok(port) => port,
     };
 
     for &rate in BAUD_RATES.iter() {
-        match port.set_baud_rate(Direction::Both, rate) {
-            Err(e) => panic!("{}: Couldn't set both baud rates to {} ({})", port_, rate, e),
-            Ok(_) => {},
+        if let Err(e) = port.set_baud_rate(Direction::Both, rate) {
+            panic!("{:?}: Couldn't set both baud rates to {:?} ({:?})", port_, rate, e)
         }
         let got = match port.baud_rate() {
-            Err(e) => panic!("{}: Couldn't read baud rate ({})", port_, e),
+            Err(e) => panic!("{:?}: Couldn't read baud rate ({:?})", port_, e),
             Ok(rate) => rate,
         };
 
         if (rate, rate) != got {
-            panic!("{}: set {} - got {}", port_, rate, got);
+            panic!("{:?}: set {:?} - got {:?}", port_, rate, got);
         }
     }
 }
@@ -59,20 +58,17 @@ fn blocking_mode(bytes: u8, deciseconds: u8) -> bool {
     let port = socat.ports().0;
     let port_ = port.display();
     let mut port = match SerialPort::open(port, Read) {
-        Err(e) => panic!("{}: Couldn't open ({})", port_, e),
+        Err(e) => panic!("{:?}: Couldn't open ({:?})", port_, e),
         Ok(port) => port,
     };
 
     let mode = BlockingMode { bytes: bytes, deciseconds: deciseconds };
-    match port.set_blocking_mode(mode) {
-        Err(e) => {
-            panic!("{}: Couldn't set blocking mode to {} ({})", port_, (bytes, deciseconds), e)
-        },
-        Ok(_) => {},
+    if let Err(e) =  port.set_blocking_mode(mode) {
+        panic!("{:?}: Couldn't set blocking mode to {:?} ({:?})", port_, (bytes, deciseconds), e)
     }
 
     match port.blocking_mode() {
-        Err(e) => panic!("{}: Couldn't read blocking mode ({})", port_, e),
+        Err(e) => panic!("{:?}: Couldn't read blocking mode ({:?})", port_, e),
         Ok(got) => got == mode
     }
 }
@@ -87,22 +83,21 @@ fn data_bits() {
     let port = socat.ports().0;
     let port_ = port.display();
     let mut port = match SerialPort::open(port, Read) {
-        Err(e) => panic!("{}: Couldn't open ({})", port_, e),
+        Err(e) => panic!("{:?}: Couldn't open ({:?})", port_, e),
         Ok(port) => port,
     };
 
     for &bits in [Five, Six, Seven, Eight].iter() {
-        match port.set_data_bits(bits) {
-            Err(e) => panic!("{}: Couldn't set data bits to {} ({})", port_, bits, e),
-            Ok(_) => {},
+        if let Err(e) =  port.set_data_bits(bits) {
+            panic!("{:?}: Couldn't set data bits to {:?} ({:?})", port_, bits, e)
         }
         let got = match port.data_bits() {
-            Err(e) => panic!("{}: Couldn't read data bits ({})", port_, e),
+            Err(e) => panic!("{:?}: Couldn't read data bits ({:?})", port_, e),
             Ok(bits) => bits,
         };
 
         if bits != got {
-            panic!("{}: set {} - got {}", port_, bits, got);
+            panic!("{:?}: set {:?} - got {:?}", port_, bits, got);
         }
     }
 }
@@ -130,22 +125,21 @@ fn flow_control() {
     let port = socat.ports().0;
     let port_ = port.display();
     let mut port = match SerialPort::open(port, Read) {
-        Err(e) => panic!("{}: Couldn't open ({})", port_, e),
+        Err(e) => panic!("{:?}: Couldn't open ({:?})", port_, e),
         Ok(port) => port,
     };
 
     for &flow in [Hardware, None, Software].iter() {
-        match port.set_flow_control(flow) {
-            Err(e) => panic!("{}: Couldn't set flow control to {} ({})", port_, flow, e),
-            Ok(_) => {},
+        if let Err(e) =  port.set_flow_control(flow) {
+            panic!("{:?}: Couldn't set flow control to {:?} ({:?})", port_, flow, e)
         }
         let got = match port.flow_control() {
-            Err(e) => panic!("{}: Couldn't read flow control ({})", port_, e),
+            Err(e) => panic!("{:?}: Couldn't read flow control ({:?})", port_, e),
             Ok(flow) => flow,
         };
 
         if flow != got {
-            panic!("{}: set {} - got {}", port_, flow, got)
+            panic!("{:?}: set {:?} - got {:?}", port_, flow, got)
         }
     }
 }
@@ -158,7 +152,7 @@ fn input_baud_rate() {
     let port = socat.ports().0;
     let port_ = port.display();
     let mut port = match SerialPort::open(port, Read) {
-        Err(e) => panic!("{}: Couldn't open ({})", port_, e),
+        Err(e) => panic!("{:?}: Couldn't open ({:?})", port_, e),
         Ok(port) => port,
     };
 
@@ -168,17 +162,16 @@ fn input_baud_rate() {
             continue
         }
 
-        match port.set_baud_rate(Input, rate) {
-            Err(e) => panic!("{}: Couldn't set input baud rate to {} ({})", port_, rate, e),
-            Ok(_) => {},
+        if let Err(e) = port.set_baud_rate(Input, rate) {
+            panic!("{:?}: Couldn't set input baud rate to {:?} ({:?})", port_, rate, e)
         }
         let got = match port.baud_rate() {
-            Err(e) => panic!("{}: Couldn't read baud rate ({})", port_, e),
+            Err(e) => panic!("{:?}: Couldn't read baud rate ({:?})", port_, e),
             Ok(rates) => rates.0,
         };
 
         if rate != got {
-            panic!("{}: set {} - got {}", port_, rate, got)
+            panic!("{:?}: set {:?} - got {:?}", port_, rate, got)
         }
     }
 }
@@ -189,22 +182,21 @@ fn loopback() {
     let (tx, rx) = socat.ports();
     let (tx_, rx_) = (tx.display(), rx.display());
     let mut tx = match SerialPort::open(tx, Write) {
-        Err(e) => panic!("{}: Couldn't open ({})", tx_, e),
+        Err(e) => panic!("{:?}: Couldn't open ({:?})", tx_, e),
         Ok(port) => port,
     };
     let mut rx = match SerialPort::open(rx, Read) {
-        Err(e) => panic!("{}: Couldn't open ({})", rx_, e),
+        Err(e) => panic!("{:?}: Couldn't open ({:?})", rx_, e),
         Ok(port) => port,
     };
 
-    match tx.write_str(MESSAGE) {
-        Err(e) => panic!("{}: Couldn't send message ({})", tx_, e),
-        _ => {},
+    if let Err(e) = tx.write_str(MESSAGE) {
+        panic!("{:?}: Couldn't send message ({:?})", tx_, e)
     }
 
     match rx.read_exact(MESSAGE.len()) {
-        Err(e) => panic!("{}: Couldn't read ({})", rx_, e),
-        Ok(buf) => assert_eq!(str::from_utf8(buf[]).ok(), Some(MESSAGE)),
+        Err(e) => panic!("{:?}: Couldn't read ({:?})", rx_, e),
+        Ok(buf) => assert_eq!(str::from_utf8(&*buf).ok(), Some(MESSAGE)),
     }
 }
 
@@ -215,17 +207,14 @@ fn open() {
     let port_ = port.display();
 
     for &access in [Read, ReadWrite, Write].iter() {
-        match SerialPort::open(port, Read) {
-            Err(e) => {
-                let access = match access {
-                    Read => "read",
-                    ReadWrite => "read/write",
-                    Write => "write",
-                };
+        if let Err(e) = SerialPort::open(port, Read) {
+            let access = match access {
+                Read => "read",
+                ReadWrite => "read/write",
+                Write => "write",
+            };
 
-                panic!("{}: Couldn't open in {} mode ({})", port_, access, e)
-            },
-            Ok(_) => {},
+            panic!("{:?}: Couldn't open in {:?} mode ({:?})", port_, access, e)
         }
     }
 }
@@ -238,22 +227,21 @@ fn output_baud_rate() {
     let port = socat.ports().0;
     let port_ = port.display();
     let mut port = match SerialPort::open(port, Read) {
-        Err(e) => panic!("{}: Couldn't open ({})", port_, e),
+        Err(e) => panic!("{:?}: Couldn't open ({:?})", port_, e),
         Ok(port) => port,
     };
 
     for &rate in BAUD_RATES.iter() {
-        match port.set_baud_rate(Output, rate) {
-            Err(e) => panic!("{}: Couldn't set output baud rate to {} ({})", port_, rate, e),
-            Ok(_) => {},
+        if let Err(e) = port.set_baud_rate(Output, rate) {
+            panic!("{:?}: Couldn't set output baud rate to {:?} ({:?})", port_, rate, e)
         }
         let got = match port.baud_rate() {
-            Err(e) => panic!("{}: Couldn't read baud rate ({})", port_, e),
+            Err(e) => panic!("{:?}: Couldn't read baud rate ({:?})", port_, e),
             Ok(rates) => rates.1,
         };
 
         if rate != got {
-            panic!("{}: set {} - got {}", port_, rate, got)
+            panic!("{:?}: set {:?} - got {:?}", port_, rate, got)
         }
     }
 }
@@ -268,22 +256,21 @@ fn parity() {
     let port = socat.ports().0;
     let port_ = port.display();
     let mut port = match SerialPort::open(port, Read) {
-        Err(e) => panic!("{}: Couldn't open ({})", port_, e),
+        Err(e) => panic!("{:?}: Couldn't open ({:?})", port_, e),
         Ok(port) => port,
     };
 
     for &parity in [Even, None, Odd].iter() {
-        match port.set_parity(parity) {
-            Err(e) => panic!("{}: Couldn't set parity to {} ({})", port_, parity, e),
-            Ok(_) => {},
+        if let Err(e) = port.set_parity(parity) {
+            panic!("{:?}: Couldn't set parity to {:?} ({:?})", port_, parity, e)
         }
         let got = match port.parity() {
-            Err(e) => panic!("{}: Couldn't read parity ({})", port_, e),
+            Err(e) => panic!("{:?}: Couldn't read parity ({:?})", port_, e),
             Ok(parity) => parity,
         };
 
         if parity != got {
-            panic!("{}: set {} - got {}", port_, parity, got)
+            panic!("{:?}: set {:?} - got {:?}", port_, parity, got)
         }
     }
 }
@@ -304,22 +291,21 @@ fn stop_bits() {
     let port = socat.ports().0;
     let port_ = port.display();
     let mut port = match SerialPort::open(port, Read) {
-        Err(e) => panic!("{}: Couldn't open ({})", port_, e),
+        Err(e) => panic!("{:?}: Couldn't open ({:?})", port_, e),
         Ok(port) => port,
     };
 
     for &bits in [One, Two].iter() {
-        match port.set_stop_bits(bits) {
-            Err(e) => panic!("{}: Couldn't set stop bits to {} ({})", port_, bits, e),
-            Ok(_) => {},
+        if let Err(e) = port.set_stop_bits(bits) {
+            panic!("{:?}: Couldn't set stop bits to {:?} ({:?})", port_, bits, e)
         }
         let got = match port.stop_bits() {
-            Err(e) => panic!("{}: Couldn't read parity ({})", port_, e),
+            Err(e) => panic!("{:?}: Couldn't read parity ({:?})", port_, e),
             Ok(bits) => bits,
         };
 
         if bits != got {
-            panic!("{}: set {} - got {}", port_, bits, got)
+            panic!("{:?}: set {:?} - got {:?}", port_, bits, got)
         }
     }
 }
