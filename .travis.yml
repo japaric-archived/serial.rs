@@ -2,7 +2,7 @@ language: rust
 
 env:
   global:
-    - secure: nB7gd+4K/yZXs/3NiCIVctpQ6QRxLrE2N0zMNnDih5tgwxmLfbJCt2FXGEhzbQ2oQlM56g5shxLNbpOVjB8/Sk9KSBZl5cURJibY+oEaJODs8ycDV7kdyjkHYLaDq7KhYQR4QbYdy8DAOvlZfV3pFpYqKGBdepeZ6mAlZIX3qzs=
+    - secure: T5QAWcRSSdFlr/Rk+xGgXoOdOMFy2/x0t5npkD+X466jwv7SDT6GXngvbAntGSJfKc33/NqJPJ3sQP0BgZ6lU3Axk1VO/Z/cubnKXdq97F0eyMj4v3/zpBlTSl0z5vD6m/KTviq0Cd1Vz2mPa5gwu+PpVvUTq/gYvKASmj61bGw=
 
 install:
   # Required to create virtual serial ports for testing
