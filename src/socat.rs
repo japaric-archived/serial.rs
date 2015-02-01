@@ -1,4 +1,4 @@
-use std::io::{BufferedReader, Command, Process};
+use std::old_io::{BufferedReader, Command, Process};
 
 /// Wrapper around a child `socat` process
 pub struct Socat {

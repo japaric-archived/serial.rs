@@ -1,4 +1,4 @@
-use std::io::{Read, ReadWrite, Write};
+use std::old_io::{Read, ReadWrite, Write};
 use std::str;
 
 use {BaudRate, BlockingMode, Direction, SerialPort};

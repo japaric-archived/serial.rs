@@ -1,6 +1,12 @@
-#![allow(unstable)]
+#![allow(unused_features)]
 #![deny(warnings)]
+#![feature(collections)]
+#![feature(core)]
+#![feature(io)]
+#![feature(libc)]
+#![feature(path)]
 #![feature(plugin)]
+#![feature(std_misc)]
 
 extern crate libc;
 #[cfg(test)]
@@ -9,7 +15,7 @@ extern crate quickcheck;
 #[plugin]
 extern crate quickcheck_macros;
 
-use std::io::{File, FileAccess, FileMode, IoError, IoResult};
+use std::old_io::{File, FileAccess, FileMode, IoError, IoResult};
 use std::num::FromPrimitive;
 use std::os::unix::AsRawFd;
 
@@ -307,13 +313,13 @@ impl Reader for SerialPort {
 }
 
 impl Writer for SerialPort {
-    fn write(&mut self, buf: &[u8]) -> IoResult<()> {
-        self.file.write(buf)
+    fn write_all(&mut self, buf: &[u8]) -> IoResult<()> {
+        self.file.write_all(buf)
     }
 }
 
 #[cfg(target_os = "linux")]
-#[derive(Copy, FromPrimitive, PartialEq, Show)]
+#[derive(Copy, Debug, FromPrimitive, PartialEq)]
 #[repr(u32)]
 pub enum BaudRate {
     B0 = termios::B0,
@@ -350,7 +356,7 @@ pub enum BaudRate {
 }
 
 #[cfg(target_os = "macos")]
-#[derive(Copy, FromPrimitive, PartialEq, Show)]
+#[derive(Copy, Debug, FromPrimitive, PartialEq)]
 #[repr(u64)]
 pub enum BaudRate {
     B0 = termios::B0,
@@ -379,7 +385,7 @@ pub enum BaudRate {
 }
 
 #[cfg(target_os = "linux")]
-#[derive(Copy, FromPrimitive, PartialEq, Show)]
+#[derive(Copy, Debug, FromPrimitive, PartialEq)]
 #[repr(u32)]
 pub enum DataBits {
     Five = termios::CS5,
@@ -389,7 +395,7 @@ pub enum DataBits {
 }
 
 #[cfg(target_os = "macos")]
-#[derive(Copy, FromPrimitive, PartialEq, Show)]
+#[derive(Copy, Debug, FromPrimitive, PartialEq)]
 #[repr(u64)]
 pub enum DataBits {
     Five = termios::CS5,
@@ -405,21 +411,21 @@ pub enum Direction {
     Output,
 }
 
-#[derive(Copy, FromPrimitive, PartialEq, Show)]
+#[derive(Copy, Debug, FromPrimitive, PartialEq)]
 pub enum FlowControl {
     Hardware,
     None,
     Software,
 }
 
-#[derive(Copy, FromPrimitive, PartialEq, Show)]
+#[derive(Copy, Debug, FromPrimitive, PartialEq)]
 pub enum Parity {
     Even,
     None,
     Odd,
 }
 
-#[derive(Copy, FromPrimitive, PartialEq, Show)]
+#[derive(Copy, Debug, FromPrimitive, PartialEq)]
 #[repr(u32)]
 pub enum StopBits {
     One,
