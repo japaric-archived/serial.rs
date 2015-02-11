@@ -1,5 +1,5 @@
 #![allow(unused_features)]
-#![deny(warnings)]
+#![deny(missing_docs, warnings)]
 #![feature(collections)]
 #![feature(core)]
 #![feature(io)]
@@ -8,402 +8,254 @@
 #![feature(plugin)]
 #![feature(std_misc)]
 
-extern crate libc;
+//! A library for serial port communication
+
+extern crate termios;
 #[cfg(test)]
 extern crate quickcheck;
 #[cfg(test)]
 #[plugin]
 extern crate quickcheck_macros;
 
-use std::old_io::{File, FileAccess, FileMode, IoError, IoResult};
-use std::num::FromPrimitive;
+use std::old_io::{File, FileAccess, FileMode, IoResult};
 use std::os::unix::AsRawFd;
 
-use termios::{FAILURE, Termios, SUCCESS};
+pub use termios::BaudRate;
 
-mod termios;
+use termios::prelude::*;
+
 #[cfg(test)]
 mod socat;
 #[cfg(test)]
 mod test;
 
+/// For how long to block `read()` calls
 #[derive(Copy, PartialEq)]
 pub struct BlockingMode {
-    /// The device will block until `bytes` are received
+    /// The device will block until *at least* `bytes` are received
     pub bytes: u8,
     /// The device will block for at least `deciseconds` after each `read()` call
     pub deciseconds: u8,
 }
 
-pub struct SerialPort {
-    fd: libc::c_int,
-    file: File,
-    termios: Termios,
-}
+/// A serial device
+pub struct SerialPort(File);
 
 impl SerialPort {
     /// Opens a serial `device` in "raw" mode
     pub fn open(device: &Path, access: FileAccess) -> IoResult<SerialPort> {
         let file = try!(File::open_mode(device, FileMode::Open, access));
-        let fd = file.as_raw_fd();
 
-        let mut termios = Termios::new();
+        let mut termios = try!(Termios::fetch(file.as_raw_fd()));
+        termios.make_raw();
 
-        match unsafe { termios::tcgetattr(fd, &mut termios) } {
-            FAILURE => return Err(IoError::last_error()),
-            SUCCESS => {},
-            _ => unreachable!(),
-        }
+        let sp = SerialPort(file);
 
-        unsafe { termios::cfmakeraw(&mut termios) };
-
-        let sp = SerialPort { fd: fd, file: file, termios: termios };
-
-        try!(sp.update());
+        try!(sp.update(termios));
 
         Ok(sp)
     }
 
     /// Returns the input and output baud rates
-    #[cfg(target_os = "linux")]
     pub fn baud_rate(&self) -> IoResult<(BaudRate, BaudRate)> {
-        let termios = try!(self.fetch());
-
-        let input = termios.c_ispeed;
-        let input = match FromPrimitive::from_u32(input) {
-            None => panic!("unrecognized BaudRate value: {}", input),
-            Some(input) => input,
-        };
-
-        let output = termios.c_ospeed;
-        let output = match FromPrimitive::from_u32(output) {
-            None => panic!("unrecognized BaudRate value: {}", output),
-            Some(output) => output,
-        };
-
-        Ok((input, output))
-    }
-
-    /// Returns the input and output baud rates
-    #[cfg(target_os = "macos")]
-    pub fn baud_rate(&self) -> IoResult<(BaudRate, BaudRate)> {
-        let termios = try!(self.fetch());
-
-        let input = termios.c_ispeed;
-        let input = match FromPrimitive::from_u64(input) {
-            None => panic!("unrecognized BaudRate value: {}", input),
-            Some(input) => input,
-        };
-
-        let output = termios.c_ospeed;
-        let output = match FromPrimitive::from_u64(output) {
-            None => panic!("unrecognized BaudRate value: {}", output),
-            Some(output) => output,
-        };
-
-        Ok((input, output))
+        self.fetch().map(|termios| {
+            (termios.ispeed(), termios.ospeed())
+        })
     }
 
     /// Returns the blocking mode used by the device
     pub fn blocking_mode(&self) -> IoResult<BlockingMode> {
-        use termios::{VMIN, VTIME};
-
-        Ok(BlockingMode {
-            bytes: self.termios.c_cc[VMIN as usize],
-            deciseconds: self.termios.c_cc[VTIME as usize],
+        self.fetch().map(|termios| {
+            BlockingMode {
+                bytes: termios.cc[control::Char::VMIN],
+                deciseconds: termios.cc[control::Char::VTIME],
+            }
         })
     }
 
     /// Returns the number of data bits used per character
-    #[cfg(target_os = "linux")]
     pub fn data_bits(&self) -> IoResult<DataBits> {
-        use termios::CSIZE;
-
-        let bits = try!(self.fetch()).c_cflag & CSIZE;
-
-        match FromPrimitive::from_u32(bits) {
-            None => panic!("unrecognized DataBits value: {}", bits),
-            Some(bits) => Ok(bits),
-        }
-    }
-
-    /// Returns the number of data bits used per character
-    #[cfg(target_os = "macos")]
-    pub fn data_bits(&self) -> IoResult<DataBits> {
-        use termios::CSIZE;
-
-        let bits = try!(self.fetch()).c_cflag & CSIZE;
-
-        match FromPrimitive::from_u64(bits) {
-            None => panic!("unrecognized DataBits value: {}", bits),
-            Some(bits) => Ok(bits),
-        }
+        self.fetch().map(|termios| {
+            match termios.get::<control::CSIZE>() {
+                control::CSIZE::CS5 => DataBits::Five,
+                control::CSIZE::CS6 => DataBits::Six,
+                control::CSIZE::CS7 => DataBits::Seven,
+                control::CSIZE::CS8 => DataBits::Eight,
+            }
+        })
     }
 
     /// Returns the flow control used by the device
     pub fn flow_control(&self) -> IoResult<FlowControl> {
-        use FlowControl::*;
-        use termios::{CRTSCTS, IXANY, IXOFF, IXON};
-
-        let termios = try!(self.fetch());
-
-        if termios.c_cflag & CRTSCTS != 0 {
-            Ok(Hardware)
-        } else if termios.c_iflag & (IXANY | IXOFF | IXON) == 0 {
-            Ok(None)
-        } else {
-            Ok(Software)
-        }
+        self.fetch().map(|termios| {
+            if termios.contains(control::Flag::CRTSCTS) {
+                FlowControl::Hardware
+            } else if termios.contains(input::Flag::IXANY) &&
+                termios.contains(input::Flag::IXOFF) &&
+                termios.contains(input::Flag::IXON)
+            {
+                FlowControl::Software
+            } else {
+                FlowControl::None
+            }
+        })
     }
 
     /// Returns the bit parity used by the device
     pub fn parity(&self) -> IoResult<Parity> {
-        use Parity::*;
-        use termios::{PARENB, PARODD};
-
-        let termios = try!(self.fetch());
-
-        match (termios.c_cflag & PARENB != 0, termios.c_cflag & PARODD != 0) {
-            (true, true) => Ok(Odd),
-            (true, false) => Ok(Even),
-            (false, _) => Ok(None),
-        }
+        self.fetch().map(|termios| {
+            match (
+                termios.contains(control::Flag::PARENB),
+                termios.contains(control::Flag::PARODD),
+            ) {
+                (true, true) => Parity::Odd,
+                (true, false) => Parity::Even,
+                (false, _) => Parity::None,
+            }
+        })
     }
 
     /// Changes the baud rate of the input/output or both directions
     pub fn set_baud_rate(&mut self, direction: Direction, rate: BaudRate) -> IoResult<()> {
-        use Direction::*;
-        use termios::speed_t;
+        self.fetch().and_then(|mut termios| {
+            match direction {
+                Direction::Both => termios.set_speed(rate),
+                Direction::Input => termios.set_ispeed(rate),
+                Direction::Output => termios.set_ospeed(rate),
+            }
 
-        match unsafe { match direction {
-            Both => termios::cfsetspeed(&mut self.termios, rate as speed_t),
-            Input => termios::cfsetispeed(&mut self.termios, rate as speed_t),
-            Output => termios::cfsetospeed(&mut self.termios, rate as speed_t),
-        } } {
-            FAILURE => Err(IoError::last_error()),
-            SUCCESS => self.update(),
-            _ => unreachable!(),
-        }
+            self.update(termios)
+        })
     }
 
     /// Changes the blocking mode used by the device
     pub fn set_blocking_mode(&mut self, mode: BlockingMode) -> IoResult<()> {
-        use termios::{VMIN, VTIME};
+        self.fetch().and_then(|mut termios| {
+            termios.cc[control::Char::VMIN] = mode.bytes;
+            termios.cc[control::Char::VTIME] = mode.deciseconds;
 
-        self.termios.c_cc[VMIN as usize] = mode.bytes;
-        self.termios.c_cc[VTIME as usize] = mode.deciseconds;
-
-        self.update()
+            self.update(termios)
+        })
     }
 
     /// Changes the number of data bits per character
-    #[cfg(target_os = "linux")]
     pub fn set_data_bits(&mut self, bits: DataBits) -> IoResult<()> {
-        use termios::CSIZE;
+        self.fetch().and_then(|mut termios| {
+            termios.set(match bits {
+                DataBits::Five => control::CSIZE::CS5,
+                DataBits::Six => control::CSIZE::CS6,
+                DataBits::Seven => control::CSIZE::CS7,
+                DataBits::Eight => control::CSIZE::CS8,
+            });
 
-        self.termios.c_cflag &= !CSIZE;
-        self.termios.c_cflag |= bits as u32;
-
-        self.update()
-    }
-
-    /// Changes the number of data bits per character
-    #[cfg(target_os = "macos")]
-    pub fn set_data_bits(&mut self, bits: DataBits) -> IoResult<()> {
-        use termios::CSIZE;
-
-        self.termios.c_cflag &= !CSIZE;
-        self.termios.c_cflag |= bits as u64;
-
-        self.update()
+            self.update(termios)
+        })
     }
 
     /// Changes the flow control used by the device
     pub fn set_flow_control(&mut self, flow: FlowControl) -> IoResult<()> {
-        use FlowControl::*;
-        use termios::{CRTSCTS, IXANY, IXOFF, IXON};
+        self.fetch().and_then(|mut termios| {
+            match flow {
+                FlowControl::Hardware => {
+                    termios.clear(input::Flag::IXANY);
+                    termios.clear(input::Flag::IXOFF);
+                    termios.clear(input::Flag::IXON);
+                    termios.set(control::Flag::CRTSCTS);
+                },
+                FlowControl::None => {
+                    termios.clear(control::Flag::CRTSCTS);
+                    termios.clear(input::Flag::IXANY);
+                    termios.clear(input::Flag::IXOFF);
+                    termios.clear(input::Flag::IXON);
+                },
+                FlowControl::Software => {
+                    termios.clear(control::Flag::CRTSCTS);
+                    termios.set(input::Flag::IXANY);
+                    termios.set(input::Flag::IXOFF);
+                    termios.set(input::Flag::IXON);
+                },
+            }
 
-        match flow {
-            Hardware=> {
-                self.termios.c_cflag |= CRTSCTS;
-                self.termios.c_iflag &= !(IXANY | IXOFF | IXON);
-            },
-            None => {
-                self.termios.c_cflag &= !CRTSCTS;
-                self.termios.c_iflag &= !(IXANY | IXOFF | IXON);
-            },
-            Software => {
-                self.termios.c_cflag &= !CRTSCTS;
-                self.termios.c_iflag |= IXANY | IXOFF | IXON;
-            },
-        }
-
-        self.update()
+            self.update(termios)
+        })
     }
 
     /// Changes the bit parity used by the device
     pub fn set_parity(&mut self, parity: Parity) -> IoResult<()> {
-        use Parity::*;
-        use termios::{PARENB, PARODD};
+        self.fetch().and_then(|mut termios| {
+            match parity {
+                Parity::Even => {
+                    termios.clear(control::Flag::PARODD);
+                    termios.set(control::Flag::PARENB);
+                },
+                Parity::None => termios.clear(control::Flag::PARENB),
+                Parity::Odd => {
+                    termios.set(control::Flag::PARENB);
+                    termios.set(control::Flag::PARODD);
+                },
+            }
 
-        match parity {
-            Even=> {
-                self.termios.c_cflag |= PARENB;
-                self.termios.c_cflag &= !PARODD;
-            },
-            None => self.termios.c_cflag &= !PARENB,
-            Odd=> self.termios.c_cflag |= PARENB | PARODD,
-        }
-
-        self.update()
+            self.update(termios)
+        })
     }
 
     /// Changes the number of stop bits per character
     pub fn set_stop_bits(&mut self, bits: StopBits) -> IoResult<()> {
-        use StopBits::*;
-        use termios::CSTOPB;
+        self.fetch().and_then(|mut termios| {
+            match bits {
+                StopBits::One => termios.clear(control::Flag::CSTOPB),
+                StopBits::Two => termios.set(control::Flag::CSTOPB),
+            }
 
-        match bits {
-            One => self.termios.c_cflag &= !CSTOPB,
-            Two => self.termios.c_cflag |= CSTOPB,
-        }
-
-        self.update()
+            self.update(termios)
+        })
     }
 
     /// Returns the number of stop bits per character
     pub fn stop_bits(&self) -> IoResult<StopBits> {
-        use StopBits::*;
-        use termios::CSTOPB;
-
-        if try!(self.fetch()).c_cflag & CSTOPB == 0 {
-            Ok(One)
-        } else {
-            Ok(Two)
-        }
+        self.fetch().map(|termios| {
+            if termios.contains(control::Flag::CSTOPB) {
+                StopBits::Two
+            } else {
+                StopBits::One
+            }
+        })
     }
 
     /// Fetches the current state of the termios structure
     fn fetch(&self) -> IoResult<Termios> {
-        let mut termios = Termios::new();
-
-        match unsafe { termios::tcgetattr(self.fd, &mut termios) } {
-            FAILURE => Err(IoError::last_error()),
-            SUCCESS => Ok(termios),
-            _ => unreachable!(),
-        }
+        Termios::fetch(self.0.as_raw_fd())
     }
 
     /// Updates the underlying termios structure
-    fn update(&self) -> IoResult<()> {
-        use termios::TCSANOW;
-
-        match unsafe { termios::tcsetattr(self.fd, TCSANOW, &self.termios) } {
-            FAILURE => Err(IoError::last_error()),
-            SUCCESS => Ok(()),
-            _ => unreachable!(),
-        }
+    fn update(&self, termios: Termios) -> IoResult<()> {
+        termios.update(self.0.as_raw_fd(), When::Now)
     }
 }
 
 impl Reader for SerialPort {
     fn read(&mut self, buf: &mut [u8]) -> IoResult<usize> {
-        self.file.read(buf)
+        self.0.read(buf)
     }
 }
 
 impl Writer for SerialPort {
     fn write_all(&mut self, buf: &[u8]) -> IoResult<()> {
-        self.file.write_all(buf)
+        self.0.write_all(buf)
     }
 }
 
-#[cfg(target_os = "linux")]
-#[derive(Copy, Debug, FromPrimitive, PartialEq)]
-#[repr(u32)]
-pub enum BaudRate {
-    B0 = termios::B0,
-    B50 = termios::B50,
-    B75 = termios::B75,
-    B110 = termios::B110,
-    B134 = termios::B134,
-    B150 = termios::B150,
-    B200 = termios::B200,
-    B300 = termios::B300,
-    B600 = termios::B600,
-    B1K2 = termios::B1200,
-    B1K8 = termios::B1800,
-    B2K4 = termios::B2400,
-    B4K8 = termios::B4800,
-    B9K6 = termios::B9600,
-    B19K2 = termios::B19200,
-    B38K4 = termios::B38400,
-    B57K6 = termios::B57600,
-    B115K2 = termios::B115200,
-    B230K4 = termios::B230400,
-    B460K8 = termios::B460800,
-    B500K = termios::B500000,
-    B576K = termios::B576000,
-    B921K6 = termios::B921600,
-    B1M = termios::B1000000,
-    B1M152 = termios::B1152000,
-    B1M5 = termios::B1500000,
-    B2M = termios::B2000000,
-    B2M5 = termios::B2500000,
-    B3M = termios::B3000000,
-    B3M5 = termios::B3500000,
-    B4M = termios::B4000000,
-}
-
-#[cfg(target_os = "macos")]
-#[derive(Copy, Debug, FromPrimitive, PartialEq)]
-#[repr(u64)]
-pub enum BaudRate {
-    B0 = termios::B0,
-    B50 = termios::B50,
-    B75 = termios::B75,
-    B110 = termios::B110,
-    B134 = termios::B134,
-    B150 = termios::B150,
-    B200 = termios::B200,
-    B300 = termios::B300,
-    B600 = termios::B600,
-    B1K2 = termios::B1200,
-    B1K8 = termios::B1800,
-    B2K4 = termios::B2400,
-    B4K8 = termios::B4800,
-    B7K2 = termios::B7200,
-    B9K6 = termios::B9600,
-    B14K4 = termios::B14400,
-    B19K2 = termios::B19200,
-    B28K8 = termios::B28800,
-    B38K4 = termios::B38400,
-    B57K6 = termios::B57600,
-    B76K8 = termios::B76800,
-    B115K2 = termios::B115200,
-    B230K4 = termios::B230400,
-}
-
-#[cfg(target_os = "linux")]
-#[derive(Copy, Debug, FromPrimitive, PartialEq)]
-#[repr(u32)]
+#[allow(missing_docs)]
+/// Number of data bits
+#[derive(Copy, Debug, PartialEq)]
 pub enum DataBits {
-    Five = termios::CS5,
-    Six = termios::CS6,
-    Seven = termios::CS7,
-    Eight = termios::CS8,
+    Five,
+    Six,
+    Seven,
+    Eight,
 }
 
-#[cfg(target_os = "macos")]
-#[derive(Copy, Debug, FromPrimitive, PartialEq)]
-#[repr(u64)]
-pub enum DataBits {
-    Five = termios::CS5,
-    Six = termios::CS6,
-    Seven = termios::CS7,
-    Eight = termios::CS8,
-}
-
+#[allow(missing_docs)]
 #[derive(Copy)]
 pub enum Direction {
     Both,
@@ -411,22 +263,27 @@ pub enum Direction {
     Output,
 }
 
-#[derive(Copy, Debug, FromPrimitive, PartialEq)]
+#[allow(missing_docs)]
+/// Flow control
+#[derive(Copy, Debug, PartialEq)]
 pub enum FlowControl {
     Hardware,
     None,
     Software,
 }
 
-#[derive(Copy, Debug, FromPrimitive, PartialEq)]
+#[allow(missing_docs)]
+/// Parity checking
+#[derive(Copy, Debug, PartialEq)]
 pub enum Parity {
     Even,
     None,
     Odd,
 }
 
-#[derive(Copy, Debug, FromPrimitive, PartialEq)]
-#[repr(u32)]
+#[allow(missing_docs)]
+/// Number of stop bits
+#[derive(Copy, Debug, PartialEq)]
 pub enum StopBits {
     One,
     Two,
