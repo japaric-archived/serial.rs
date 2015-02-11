@@ -1,29 +1,32 @@
 use std::old_io::{Read, ReadWrite, Write};
 use std::str;
 
+use BaudRate::*;
 use {BaudRate, BlockingMode, Direction, SerialPort};
-use BaudRate::{
-    B0, B50, B75, B110, B134, B150, B200, B300, B600, B1K2, B2K4, B4K8, B9K6, B19K2, B38K4, B57K6,
-    B115K2, B230K4,
-};
-
-#[cfg(target_os = "linux")]
-use BaudRate::{B460K8, B500K, B576K, B921K6, B1M, B1M152, B1M5, B2M, B2M5, B3M, B3M5, B4M};
-
-#[cfg(target_os = "macos")]
-use BaudRate::{B7K2, B14K4, B28K8, B76K8};
 
 use socat::Socat;
 
-#[cfg(target_os = "linux")]
-const BAUD_RATES: &'static [BaudRate] = &[
-    B0, B50, B75, B110, B134, B150, B200, B300, B600, B1K2, B2K4, B4K8, B9K6, B19K2, B38K4, B57K6,
-    B115K2, B230K4, B460K8, B500K, B576K, B921K6, B1M, B1M152, B1M5, B2M, B2M5, B3M, B3M5, B4M];
-
-#[cfg(target_os = "macos")]
-const BAUD_RATES: &'static [BaudRate] = &[
-    B0, B50, B75, B110, B134, B150, B200, B300, B600, B1K2, B2K4, B4K8, B7K2, B9K6, B14K4, B19K2,
-    B28K8, B38K4, B57K6, B115K2, B230K4];
+const BAUD_RATES: [BaudRate; 19] = [
+    B0,
+    B50,
+    B75,
+    B110,
+    B134,
+    B150,
+    B200,
+    B300,
+    B600,
+    B1200,
+    B1800,
+    B2400,
+    B4800,
+    B9600,
+    B19200,
+    B38400,
+    B57600,
+    B115200,
+    B230400,
+];
 
 const MESSAGE: &'static str = "Hello World!";
 
