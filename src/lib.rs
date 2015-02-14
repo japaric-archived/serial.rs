@@ -1,4 +1,5 @@
 #![allow(unused_features)]
+#![cfg_attr(test, plugin(quickcheck_macros))]
 #![deny(missing_docs, warnings)]
 #![feature(collections)]
 #![feature(core)]
@@ -13,9 +14,6 @@
 extern crate termios;
 #[cfg(test)]
 extern crate quickcheck;
-#[cfg(test)]
-#[plugin]
-extern crate quickcheck_macros;
 
 use std::old_io::{File, FileAccess, FileMode, IoResult};
 use std::os::unix::AsRawFd;
