@@ -5,6 +5,8 @@
 #![feature(core)]
 #![feature(io)]
 #![feature(libc)]
+#![feature(old_io)]
+#![feature(old_path)]
 #![feature(path)]
 #![feature(plugin)]
 #![feature(std_misc)]
