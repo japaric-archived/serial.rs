@@ -1,12 +1,12 @@
-use std::old_io::{Read, ReadWrite, Write};
-use std::str;
+use std::io::{Read, Write};
+use std::{iter, str};
 
 use BaudRate::*;
-use {BaudRate, BlockingMode, Direction, SerialPort};
+use {BaudRate, BlockingMode, Direction, OpenOptions, SerialPort};
 
 use socat::Socat;
 
-const BAUD_RATES: [BaudRate; 19] = [
+const BAUD_RATES: &'static [BaudRate; 19] = &[
     B0,
     B50,
     B75,
@@ -35,12 +35,12 @@ fn bidirectional_baud_rate() {
     let socat = Socat::new();
     let port = socat.ports().0;
     let port_ = port.display();
-    let mut port = match SerialPort::open(port, Read) {
+    let mut port = match SerialPort::open(port) {
         Err(e) => panic!("{:?}: Couldn't open ({:?})", port_, e),
         Ok(port) => port,
     };
 
-    for &rate in BAUD_RATES.iter() {
+    for &rate in BAUD_RATES {
         if let Err(e) = port.set_baud_rate(Direction::Both, rate) {
             panic!("{:?}: Couldn't set both baud rates to {:?} ({:?})", port_, rate, e)
         }
@@ -60,7 +60,7 @@ fn blocking_mode(bytes: u8, deciseconds: u8) -> bool {
     let socat = Socat::new();
     let port = socat.ports().0;
     let port_ = port.display();
-    let mut port = match SerialPort::open(port, Read) {
+    let mut port = match SerialPort::open(port) {
         Err(e) => panic!("{:?}: Couldn't open ({:?})", port_, e),
         Ok(port) => port,
     };
@@ -85,12 +85,12 @@ fn data_bits() {
     let socat = Socat::new();
     let port = socat.ports().0;
     let port_ = port.display();
-    let mut port = match SerialPort::open(port, Read) {
+    let mut port = match SerialPort::open(port) {
         Err(e) => panic!("{:?}: Couldn't open ({:?})", port_, e),
         Ok(port) => port,
     };
 
-    for &bits in [Five, Six, Seven, Eight].iter() {
+    for &bits in &[Five, Six, Seven, Eight] {
         if let Err(e) =  port.set_data_bits(bits) {
             panic!("{:?}: Couldn't set data bits to {:?} ({:?})", port_, bits, e)
         }
@@ -114,8 +114,10 @@ fn double_open() {
     let socat = Socat::new();
     let port = socat.ports().0;
 
-    let first = SerialPort::open(port, Write);
-    let second = SerialPort::open(port, Write);
+    let mut opts = OpenOptions::new();
+    opts.write(true);
+    let first = opts.open(port);
+    let second = opts.open(port);
 
     assert!(first.is_ok() && second.is_err());
 }
@@ -127,12 +129,12 @@ fn flow_control() {
     let socat = Socat::new();
     let port = socat.ports().0;
     let port_ = port.display();
-    let mut port = match SerialPort::open(port, Read) {
+    let mut port = match SerialPort::open(port) {
         Err(e) => panic!("{:?}: Couldn't open ({:?})", port_, e),
         Ok(port) => port,
     };
 
-    for &flow in [Hardware, None, Software].iter() {
+    for &flow in &[Hardware, None, Software] {
         if let Err(e) =  port.set_flow_control(flow) {
             panic!("{:?}: Couldn't set flow control to {:?} ({:?})", port_, flow, e)
         }
@@ -154,12 +156,12 @@ fn input_baud_rate() {
     let socat = Socat::new();
     let port = socat.ports().0;
     let port_ = port.display();
-    let mut port = match SerialPort::open(port, Read) {
+    let mut port = match SerialPort::open(port) {
         Err(e) => panic!("{:?}: Couldn't open ({:?})", port_, e),
         Ok(port) => port,
     };
 
-    for &rate in BAUD_RATES.iter() {
+    for &rate in BAUD_RATES {
         // XXX Can't set input baud rate to `B0`
         if rate == B0 {
             continue
@@ -184,22 +186,30 @@ fn loopback() {
     let socat = Socat::new();
     let (tx, rx) = socat.ports();
     let (tx_, rx_) = (tx.display(), rx.display());
-    let mut tx = match SerialPort::open(tx, Write) {
+    let mut tx = match OpenOptions::new().write(true).open(tx) {
         Err(e) => panic!("{:?}: Couldn't open ({:?})", tx_, e),
         Ok(port) => port,
     };
-    let mut rx = match SerialPort::open(rx, Read) {
+    let mut rx = match SerialPort::open(rx) {
         Err(e) => panic!("{:?}: Couldn't open ({:?})", rx_, e),
         Ok(port) => port,
     };
 
-    if let Err(e) = tx.write_str(MESSAGE) {
+    if let Err(e) = tx.write_all(MESSAGE.as_bytes()) {
         panic!("{:?}: Couldn't send message ({:?})", tx_, e)
     }
 
-    match rx.read_exact(MESSAGE.len()) {
+    let n = MESSAGE.len();
+    let mut buf: Vec<u8> = iter::repeat(0).take(n).collect();
+    match rx.read(&mut buf) {
         Err(e) => panic!("{:?}: Couldn't read ({:?})", rx_, e),
-        Ok(buf) => assert_eq!(str::from_utf8(&*buf).ok(), Some(MESSAGE)),
+        Ok(k) => {
+            if n == k {
+                assert_eq!(str::from_utf8(&buf[..n]).ok(), Some(MESSAGE))
+            } else {
+                panic!("expected {} bytes, got {}", n, k);
+            }
+        },
     }
 }
 
@@ -209,15 +219,17 @@ fn open() {
     let port = socat.ports().0;
     let port_ = port.display();
 
-    for &access in [Read, ReadWrite, Write].iter() {
-        if let Err(e) = SerialPort::open(port, Read) {
-            let access = match access {
-                Read => "read",
-                ReadWrite => "read/write",
-                Write => "write",
-            };
+    for &read in &[true, false] {
+        for &write in &[true, false] {
+            if let Err(e) = OpenOptions::new().read(read).write(write).open(port) {
+                let access = match (read, write) {
+                    (true, true) => "read/write",
+                    (false, true) => "write",
+                    (_, false) => "read",
+                };
 
-            panic!("{:?}: Couldn't open in {:?} mode ({:?})", port_, access, e)
+                panic!("{:?}: Couldn't open in {:?} mode ({:?})", port_, access, e)
+            }
         }
     }
 }
@@ -229,12 +241,12 @@ fn output_baud_rate() {
     let socat = Socat::new();
     let port = socat.ports().0;
     let port_ = port.display();
-    let mut port = match SerialPort::open(port, Read) {
+    let mut port = match SerialPort::open(port) {
         Err(e) => panic!("{:?}: Couldn't open ({:?})", port_, e),
         Ok(port) => port,
     };
 
-    for &rate in BAUD_RATES.iter() {
+    for &rate in BAUD_RATES {
         if let Err(e) = port.set_baud_rate(Output, rate) {
             panic!("{:?}: Couldn't set output baud rate to {:?} ({:?})", port_, rate, e)
         }
@@ -258,12 +270,12 @@ fn parity() {
     let socat = Socat::new();
     let port = socat.ports().0;
     let port_ = port.display();
-    let mut port = match SerialPort::open(port, Read) {
+    let mut port = match SerialPort::open(port) {
         Err(e) => panic!("{:?}: Couldn't open ({:?})", port_, e),
         Ok(port) => port,
     };
 
-    for &parity in [Even, None, Odd].iter() {
+    for &parity in &[Even, None, Odd] {
         if let Err(e) = port.set_parity(parity) {
             panic!("{:?}: Couldn't set parity to {:?} ({:?})", port_, parity, e)
         }
@@ -281,9 +293,10 @@ fn parity() {
 #[test]
 fn read_in_write_only_mode() {
     let socat = Socat::new();
-    let mut port = SerialPort::open(socat.ports().0, Write);
+    let mut port = OpenOptions::new().write(true).open(socat.ports().0).unwrap();
+    let mut buf = Vec::new();
 
-    assert!(port.read_to_string().is_err())
+    assert!(port.read_to_end(&mut buf).is_err())
 }
 
 #[test]
@@ -293,12 +306,12 @@ fn stop_bits() {
     let socat = Socat::new();
     let port = socat.ports().0;
     let port_ = port.display();
-    let mut port = match SerialPort::open(port, Read) {
+    let mut port = match SerialPort::open(port) {
         Err(e) => panic!("{:?}: Couldn't open ({:?})", port_, e),
         Ok(port) => port,
     };
 
-    for &bits in [One, Two].iter() {
+    for &bits in &[One, Two] {
         if let Err(e) = port.set_stop_bits(bits) {
             panic!("{:?}: Couldn't set stop bits to {:?} ({:?})", port_, bits, e)
         }
@@ -316,7 +329,7 @@ fn stop_bits() {
 #[test]
 fn write_in_read_only_mode() {
     let socat = Socat::new();
-    let mut port = SerialPort::open(socat.ports().0, Read);
+    let mut port = SerialPort::open(socat.ports().0).unwrap();
 
-    assert!(port.write_str(MESSAGE).is_err())
+    assert!(port.write_all(MESSAGE.as_bytes()).is_err())
 }

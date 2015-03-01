@@ -1,14 +1,11 @@
 #![allow(unused_features)]
 #![cfg_attr(test, plugin(quickcheck_macros))]
 #![deny(missing_docs, warnings)]
-#![feature(collections)]
-#![feature(core)]
+#![feature(fs)]
 #![feature(io)]
-#![feature(libc)]
-#![feature(old_io)]
-#![feature(old_path)]
 #![feature(path)]
 #![feature(plugin)]
+#![feature(process)]
 #![feature(std_misc)]
 
 //! A library for serial port communication
@@ -17,8 +14,11 @@ extern crate termios;
 #[cfg(test)]
 extern crate quickcheck;
 
-use std::old_io::{File, FileAccess, FileMode, IoResult};
+use std::fmt;
+use std::fs::{File, self};
+use std::io::{Read, Write, self};
 use std::os::unix::AsRawFd;
+use std::path::{AsPath, Path};
 
 pub use termios::BaudRate;
 
@@ -38,13 +38,45 @@ pub struct BlockingMode {
     pub deciseconds: u8,
 }
 
-/// A serial device
-pub struct SerialPort(File);
+/// Options and flags which can be used to configure how a serial port is opened.
+pub struct OpenOptions(fs::OpenOptions);
 
-impl SerialPort {
-    /// Opens a serial `device` in "raw" mode
-    pub fn open(device: &Path, access: FileAccess) -> IoResult<SerialPort> {
-        let file = try!(File::open_mode(device, FileMode::Open, access));
+impl OpenOptions {
+    /// Creates a blank net set of options ready for configuration.
+    ///
+    /// All options are initially set to false.
+    pub fn new() -> OpenOptions {
+        OpenOptions(fs::OpenOptions::new())
+    }
+
+    /// Set the option for read access.
+    ///
+    /// This option, when true, will indicate that the serial port should be read-able when opened.
+    pub fn read(&mut self, read: bool) -> &mut OpenOptions {
+        self.0.read(read);
+        self
+    }
+
+    /// Set the option for write access.
+    ///
+    /// This option, when true, will indicate that the serial port should be write-able when
+    /// opened.
+    pub fn write(&mut self, write: bool) -> &mut OpenOptions {
+        self.0.write(write);
+        self
+    }
+
+    /// Opens a serial port in "raw" mode with the specified read/write permissions.
+    ///
+    /// If no permission was specified, the port will be opened in read only mode.
+    pub fn open<P: ?Sized>(&self, port: &P) -> io::Result<SerialPort> where
+        P: AsPath,
+    {
+        self.open_(port.as_path())
+    }
+
+    fn open_(&self, path: &Path) -> io::Result<SerialPort> {
+        let file = try!(self.0.open(path));
 
         let mut termios = try!(Termios::fetch(file.as_raw_fd()));
         termios.make_raw();
@@ -55,16 +87,26 @@ impl SerialPort {
 
         Ok(sp)
     }
+}
+
+/// A serial device
+pub struct SerialPort(File);
+
+impl SerialPort {
+    /// Opens a serial port in "raw" mode with read-only permission
+    pub fn open(port: &Path) -> io::Result<SerialPort> {
+        OpenOptions::new().open(port)
+    }
 
     /// Returns the input and output baud rates
-    pub fn baud_rate(&self) -> IoResult<(BaudRate, BaudRate)> {
+    pub fn baud_rate(&self) -> io::Result<(BaudRate, BaudRate)> {
         self.fetch().map(|termios| {
             (termios.ispeed(), termios.ospeed())
         })
     }
 
     /// Returns the blocking mode used by the device
-    pub fn blocking_mode(&self) -> IoResult<BlockingMode> {
+    pub fn blocking_mode(&self) -> io::Result<BlockingMode> {
         self.fetch().map(|termios| {
             BlockingMode {
                 bytes: termios.cc[control::Char::VMIN],
@@ -74,7 +116,7 @@ impl SerialPort {
     }
 
     /// Returns the number of data bits used per character
-    pub fn data_bits(&self) -> IoResult<DataBits> {
+    pub fn data_bits(&self) -> io::Result<DataBits> {
         self.fetch().map(|termios| {
             match termios.get::<control::CSIZE>() {
                 control::CSIZE::CS5 => DataBits::Five,
@@ -86,7 +128,7 @@ impl SerialPort {
     }
 
     /// Returns the flow control used by the device
-    pub fn flow_control(&self) -> IoResult<FlowControl> {
+    pub fn flow_control(&self) -> io::Result<FlowControl> {
         self.fetch().map(|termios| {
             if termios.contains(control::Flag::CRTSCTS) {
                 FlowControl::Hardware
@@ -102,7 +144,7 @@ impl SerialPort {
     }
 
     /// Returns the bit parity used by the device
-    pub fn parity(&self) -> IoResult<Parity> {
+    pub fn parity(&self) -> io::Result<Parity> {
         self.fetch().map(|termios| {
             match (
                 termios.contains(control::Flag::PARENB),
@@ -116,7 +158,7 @@ impl SerialPort {
     }
 
     /// Changes the baud rate of the input/output or both directions
-    pub fn set_baud_rate(&mut self, direction: Direction, rate: BaudRate) -> IoResult<()> {
+    pub fn set_baud_rate(&mut self, direction: Direction, rate: BaudRate) -> io::Result<()> {
         self.fetch().and_then(|mut termios| {
             match direction {
                 Direction::Both => termios.set_speed(rate),
@@ -129,7 +171,7 @@ impl SerialPort {
     }
 
     /// Changes the blocking mode used by the device
-    pub fn set_blocking_mode(&mut self, mode: BlockingMode) -> IoResult<()> {
+    pub fn set_blocking_mode(&mut self, mode: BlockingMode) -> io::Result<()> {
         self.fetch().and_then(|mut termios| {
             termios.cc[control::Char::VMIN] = mode.bytes;
             termios.cc[control::Char::VTIME] = mode.deciseconds;
@@ -139,7 +181,7 @@ impl SerialPort {
     }
 
     /// Changes the number of data bits per character
-    pub fn set_data_bits(&mut self, bits: DataBits) -> IoResult<()> {
+    pub fn set_data_bits(&mut self, bits: DataBits) -> io::Result<()> {
         self.fetch().and_then(|mut termios| {
             termios.set(match bits {
                 DataBits::Five => control::CSIZE::CS5,
@@ -153,7 +195,7 @@ impl SerialPort {
     }
 
     /// Changes the flow control used by the device
-    pub fn set_flow_control(&mut self, flow: FlowControl) -> IoResult<()> {
+    pub fn set_flow_control(&mut self, flow: FlowControl) -> io::Result<()> {
         self.fetch().and_then(|mut termios| {
             match flow {
                 FlowControl::Hardware => {
@@ -181,7 +223,7 @@ impl SerialPort {
     }
 
     /// Changes the bit parity used by the device
-    pub fn set_parity(&mut self, parity: Parity) -> IoResult<()> {
+    pub fn set_parity(&mut self, parity: Parity) -> io::Result<()> {
         self.fetch().and_then(|mut termios| {
             match parity {
                 Parity::Even => {
@@ -200,7 +242,7 @@ impl SerialPort {
     }
 
     /// Changes the number of stop bits per character
-    pub fn set_stop_bits(&mut self, bits: StopBits) -> IoResult<()> {
+    pub fn set_stop_bits(&mut self, bits: StopBits) -> io::Result<()> {
         self.fetch().and_then(|mut termios| {
             match bits {
                 StopBits::One => termios.clear(control::Flag::CSTOPB),
@@ -212,7 +254,7 @@ impl SerialPort {
     }
 
     /// Returns the number of stop bits per character
-    pub fn stop_bits(&self) -> IoResult<StopBits> {
+    pub fn stop_bits(&self) -> io::Result<StopBits> {
         self.fetch().map(|termios| {
             if termios.contains(control::Flag::CSTOPB) {
                 StopBits::Two
@@ -223,25 +265,45 @@ impl SerialPort {
     }
 
     /// Fetches the current state of the termios structure
-    fn fetch(&self) -> IoResult<Termios> {
+    fn fetch(&self) -> io::Result<Termios> {
         Termios::fetch(self.0.as_raw_fd())
     }
 
     /// Updates the underlying termios structure
-    fn update(&self, termios: Termios) -> IoResult<()> {
+    fn update(&self, termios: Termios) -> io::Result<()> {
         termios.update(self.0.as_raw_fd(), When::Now)
     }
 }
 
-impl Reader for SerialPort {
-    fn read(&mut self, buf: &mut [u8]) -> IoResult<usize> {
+impl Read for SerialPort {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         self.0.read(buf)
+    }
+
+    fn read_to_end(&mut self, buf: &mut Vec<u8>) -> io::Result<()> {
+        self.0.read_to_end(buf)
+    }
+
+    fn read_to_string(&mut self, buf: &mut String) -> io::Result<()> {
+        self.0.read_to_string(buf)
     }
 }
 
-impl Writer for SerialPort {
-    fn write_all(&mut self, buf: &[u8]) -> IoResult<()> {
+impl Write for SerialPort {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.0.write(buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.0.flush()
+    }
+
+    fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
         self.0.write_all(buf)
+    }
+
+    fn write_fmt(&mut self, fmt: fmt::Arguments) -> io::Result<()> {
+        self.0.write_fmt(fmt)
     }
 }
 

@@ -1,33 +1,32 @@
-use std::old_io::{BufferedReader, Command, Process};
+use std::io::{BufReadExt, BufReader};
+use std::path::{Path, PathBuf};
+use std::process::{Child, Command, Stdio};
 
 /// Wrapper around a child `socat` process
 pub struct Socat {
-    process: Process,
-    ports: (Path, Path),
+    child: Child,
+    ports: (PathBuf, PathBuf),
 }
 
 impl Socat {
     /// Spawns `socat`
     pub fn new() -> Socat {
-        let mut process =
+        let mut child =
             Command::new("socat").
                 args(&["-d", "-d", "pty", "pty"]).
+                stderr(Stdio::capture()).
                 spawn().
-                ok().
-                expect("Couldn't find `socat`");
+                ok().expect("Couldn't find `socat`");
 
-        let mut stderr = BufferedReader::new(process.stderr.take().unwrap());
+        let stderr = BufReader::new(child.stderr.take().unwrap());
         let mut devices = stderr.lines().map(|line| {
-            Path::new(
                 line.
-                    ok().
-                    expect("Couldn't read `socat` stderr").
-                    as_slice().
+                    ok().expect("Couldn't read `socat` stderr").
                     trim().
                     split(" is ").
                     skip(1).
-                    next().
-                    expect("Couldn't parse serial device"))
+                    next().expect("Couldn't parse serial device").
+                    to_string()
         });
 
         // FIXME Reading stderr may block indefinitely if `socat` fails
@@ -37,8 +36,8 @@ impl Socat {
         };
 
         Socat {
-            process: process,
-            ports: (first, second),
+            child: child,
+            ports: (PathBuf::new(&first), PathBuf::new(&second)),
         }
     }
 
@@ -51,6 +50,6 @@ impl Socat {
 impl Drop for Socat {
     fn drop(&mut self) {
         // FIXME Destructor may panic
-        self.process.signal_kill().unwrap()
+        self.child.kill().unwrap()
     }
 }

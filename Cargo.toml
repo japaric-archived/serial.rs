@@ -1,16 +1,14 @@
 [package]
 
+authors = ["Jorge Aparicio <japaricious@gmail.com>"]
 name = "serial"
 version = "0.0.0"
-authors = ["Jorge Aparicio <japaricious@gmail.com>"]
 
 [dependencies.termios]
 git = "https://github.com/japaric/termios.rs"
 
 [dev-dependencies.quickcheck]
-branch = "rustup"
-git = "https://github.com/japaric/quickcheck"
+git = "https://github.com/burntsushi/quickcheck"
 
 [dev-dependencies.quickcheck_macros]
-branch = "rustup"
-git = "https://github.com/japaric/quickcheck"
+git = "https://github.com/burntsushi/quickcheck"
