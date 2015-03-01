@@ -24,7 +24,7 @@ impl Socat {
                     expect("Couldn't read `socat` stderr").
                     as_slice().
                     trim().
-                    split_str(" is ").
+                    split(" is ").
                     skip(1).
                     next().
                     expect("Couldn't parse serial device"))
