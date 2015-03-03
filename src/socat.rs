@@ -14,7 +14,7 @@ impl Socat {
         let mut child =
             Command::new("socat").
                 args(&["-d", "-d", "pty", "pty"]).
-                stderr(Stdio::capture()).
+                stderr(Stdio::piped()).
                 spawn().
                 ok().expect("Couldn't find `socat`");
 

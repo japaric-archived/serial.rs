@@ -5,7 +5,6 @@
 #![feature(io)]
 #![feature(path)]
 #![feature(plugin)]
-#![feature(process)]
 #![feature(std_misc)]
 
 //! A library for serial port communication
