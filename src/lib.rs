@@ -1,6 +1,7 @@
 #![allow(unused_features)]
 #![cfg_attr(test, plugin(quickcheck_macros))]
 #![deny(missing_docs, warnings)]
+#![feature(custom_attribute)]
 #![feature(fs)]
 #![feature(io)]
 #![feature(path)]
