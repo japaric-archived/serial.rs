@@ -1,4 +1,4 @@
-use std::io::{BufReadExt, BufReader};
+use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 

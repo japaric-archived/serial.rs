@@ -17,7 +17,7 @@ extern crate quickcheck;
 use std::fmt;
 use std::fs::{File, self};
 use std::io::{Read, Write, self};
-use std::os::unix::AsRawFd;
+use std::os::unix::io::AsRawFd;
 use std::path::{AsPath, Path};
 
 pub use termios::BaudRate;
@@ -280,11 +280,11 @@ impl Read for SerialPort {
         self.0.read(buf)
     }
 
-    fn read_to_end(&mut self, buf: &mut Vec<u8>) -> io::Result<()> {
+    fn read_to_end(&mut self, buf: &mut Vec<u8>) -> io::Result<usize> {
         self.0.read_to_end(buf)
     }
 
-    fn read_to_string(&mut self, buf: &mut String) -> io::Result<()> {
+    fn read_to_string(&mut self, buf: &mut String) -> io::Result<usize> {
         self.0.read_to_string(buf)
     }
 }
