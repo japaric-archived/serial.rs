@@ -1,9 +1,11 @@
 #![allow(unused_features)]
 #![cfg_attr(test, plugin(quickcheck_macros))]
 #![deny(missing_docs, warnings)]
+#![feature(convert)]
 #![feature(custom_attribute)]
 #![feature(fs)]
 #![feature(io)]
+#![feature(io_ext)]
 #![feature(path)]
 #![feature(plugin)]
 #![feature(std_misc)]
@@ -18,7 +20,7 @@ use std::fmt;
 use std::fs::{File, self};
 use std::io::{Read, Write, self};
 use std::os::unix::io::AsRawFd;
-use std::path::{AsPath, Path};
+use std::path::Path;
 
 pub use termios::BaudRate;
 
@@ -70,9 +72,9 @@ impl OpenOptions {
     ///
     /// If no permission was specified, the port will be opened in read only mode.
     pub fn open<P: ?Sized>(&self, port: &P) -> io::Result<SerialPort> where
-        P: AsPath,
+        P: AsRef<Path>,
     {
-        self.open_(port.as_path())
+        self.open_(port.as_ref())
     }
 
     fn open_(&self, path: &Path) -> io::Result<SerialPort> {
