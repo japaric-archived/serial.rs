@@ -1,3 +1,5 @@
+#![allow(trivial_casts)]
+
 use std::io::{Read, Write};
 use std::{iter, str};
 

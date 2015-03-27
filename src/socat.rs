@@ -37,7 +37,7 @@ impl Socat {
 
         Socat {
             child: child,
-            ports: (PathBuf::new(&first), PathBuf::new(&second)),
+            ports: (PathBuf::from(&first), PathBuf::from(&second)),
         }
     }
 
