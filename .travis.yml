@@ -5,20 +5,20 @@ env:
     - secure: T5QAWcRSSdFlr/Rk+xGgXoOdOMFy2/x0t5npkD+X466jwv7SDT6GXngvbAntGSJfKc33/NqJPJ3sQP0BgZ6lU3Axk1VO/Z/cubnKXdq97F0eyMj4v3/zpBlTSl0z5vD6m/KTviq0Cd1Vz2mPa5gwu+PpVvUTq/gYvKASmj61bGw=
 
 before_install:
-  - yes | sudo add-apt-repository "deb http://llvm.org/apt/precise/ llvm-toolchain-precise-3.5 main"
+  - yes | sudo add-apt-repository "deb http://llvm.org/apt/precise/ llvm-toolchain-precise-3.6 main"
   - yes | sudo add-apt-repository "deb http://ppa.launchpad.net/ubuntu-toolchain-r/test/ubuntu precise main"
   - sudo apt-get update
 
 install:
   # Required to build bindgen
-  - sudo apt-get install --force-yes libclang-3.5-dev
-  - sudo apt-get install --force-yes llvm-3.5-dev
+  - sudo apt-get install --force-yes libclang-3.6-dev
+  - sudo apt-get install --force-yes llvm-3.6-dev
   # Required to create virtual serial ports for testing
   - sudo apt-get install -qq socat
 
 script:
   - apt-cache show libc6 | grep Version
-  - LIBCLANG_PATH=/usr/lib/llvm-3.5/lib cargo build --verbose
+  - LIBCLANG_PATH=/usr/lib/llvm-3.6/lib cargo build --verbose
   - cargo test --verbose
   - cargo doc --verbose
   - ./check-line-length.sh
