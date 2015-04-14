@@ -32,7 +32,7 @@ mod socat;
 mod test;
 
 /// For how long to block `read()` calls
-#[derive(Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct BlockingMode {
     /// The device will block until *at least* `bytes` are received
     pub bytes: u8,
@@ -311,7 +311,7 @@ impl Write for SerialPort {
 
 #[allow(missing_docs)]
 /// Number of data bits
-#[derive(Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum DataBits {
     Five,
     Six,
@@ -320,7 +320,7 @@ pub enum DataBits {
 }
 
 #[allow(missing_docs)]
-#[derive(Copy)]
+#[derive(Clone, Copy)]
 pub enum Direction {
     Both,
     Input,
@@ -329,7 +329,7 @@ pub enum Direction {
 
 #[allow(missing_docs)]
 /// Flow control
-#[derive(Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum FlowControl {
     Hardware,
     None,
@@ -338,7 +338,7 @@ pub enum FlowControl {
 
 #[allow(missing_docs)]
 /// Parity checking
-#[derive(Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Parity {
     Even,
     None,
@@ -347,7 +347,7 @@ pub enum Parity {
 
 #[allow(missing_docs)]
 /// Number of stop bits
-#[derive(Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum StopBits {
     One,
     Two,
