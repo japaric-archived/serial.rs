@@ -1,3 +1,15 @@
+# Status
+
+This project has been **DEPRECATED**. You can use [serial] as a replacement.
+
+[serial]: https://crates.io/crates/serial
+
+This project won't receive further updates or bug fixes.
+
+-- @japaric, 2016/02/08
+
+---
+
 [![Build Status][status]](https://travis-ci.org/japaric/serial.rs)
 
 # `serial.rs`
